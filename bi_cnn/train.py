@@ -34,6 +34,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
             # print(feature, target)
             optimizer.zero_grad()
             sim_score = model((s1, s2))
+
             # loss = objf(sim_score[0], sim_score[1], target)
             y = F.cosine_similarity(sim_score[0], sim_score[1]).view(1, -1)
             y = F.log_softmax(y)
