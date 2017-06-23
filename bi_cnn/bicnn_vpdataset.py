@@ -2,7 +2,7 @@ from torchtext import data
 import os
 import datetime
 import math, random
-
+import pickle
 
 def vp_bicnn(text_field, label_field, args, num_experts=0, **kargs):
     print(text_field, label_field, args.xfolds, num_experts)
@@ -76,18 +76,23 @@ class VP_BICNN(data.Dataset):
         if examples is None:
             path = self.dirname if path is None else path
             examples = []
-            with open(os.path.join(path, self.filename)) as f:
-                lines = f.readlines()
-                # pdb.set_trace()
-                k = 0
-                for line in lines:
-                    k += 1
-                    if k % (359*10) == 0:
-                        print('{}: processed {} examples'.format(datetime.datetime.now().strftime('%H:%M:%S'), k))
-                        break
-                    label, s1, s2 = line.split("\t")
-                    this_example = data.Example.fromlist([s1, s2, label], fields)
-                    examples += [this_example]
+            pkl_file_name = os.path.join(path, self.filename.replace('txt', 'pkl'))
+            if os.path.exists(pkl_file_name):
+                examples = pickle.load(open(pkl_file_name, 'rb'))
+            else:
+                with open(os.path.join(path, self.filename)) as f, open(pkl_file_name) as p:
+                    lines = f.readlines()
+                    # pdb.set_trace()
+                    k = 0
+                    for line in lines:
+                        k += 1
+                        if k % (359*10) == 0:
+                            print('{}: processed {} examples'.format(datetime.datetime.now().strftime('%H:%M:%S'), k))
+                        label, s1, s2 = line.split("\t")
+                        this_example = data.Example.fromlist([s1, s2, label], fields)
+                        examples += [this_example]
+                    pickle.dump(examples, p)
+
 
                     # assume "target \t source", one instance per line
         # print(examples[0].text)

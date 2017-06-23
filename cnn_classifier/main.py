@@ -1,15 +1,15 @@
 #! /usr/bin/env python
 import datetime
 import os
-import model
-import mydatasets
+from . import model
+from . import mydatasets
 import numpy as np
 import torchtext.data as data
 import torchtext.datasets as datasets
-import train
-import vpdataset
+from . import train
+from . import vpdataset
 from parse_args import parse_args
-from chatscript_file_generator import *
+from .chatscript_file_generator import *
 
 # load VP dataset
 def vp(text_field, label_field, foldid, num_experts=0, **kargs):

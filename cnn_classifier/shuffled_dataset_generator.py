@@ -1,5 +1,5 @@
 import random
-from chatscript_file_generator import *
+from .chatscript_file_generator import *
 
 
 # this standalone script is used to generate a shuffled dataset with its vocabulary.

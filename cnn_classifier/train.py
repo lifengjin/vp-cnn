@@ -3,7 +3,7 @@ import torch
 import torch.autograd as autograd
 import torch.nn.functional as F
 import copy
-from chatscript_file_generator import print_test_features
+from .chatscript_file_generator import print_test_features
 
 def ensemble_predict(batch, models, args, **kwargs):
     for model in models:

@@ -26,9 +26,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
             s1, s2, target = batch.s1, batch.s2, batch.label
             s1.data.t_(), s2.data.t_() # batch first, index align
             _, index = torch.max(batch.label, 0)
-            print(index)
-            # print(feature)
-            # print(train_iter.data().fields['text'].vocab.stoi)
+            # print(index)
 
             assert s1.volatile is False and target.volatile is False
             # print(feature, target)
@@ -38,7 +36,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
             # loss = objf(sim_score[0], sim_score[1], target)
             y = F.cosine_similarity(sim_score[0], sim_score[1]).view(1, -1)
             y = F.log_softmax(y)
-            print(y)
+            # print(y)
             loss = F.nll_loss(y, index)
             loss.backward()
             optimizer.step()
