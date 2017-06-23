@@ -53,7 +53,7 @@ def vp_bicnn(text_field, label_field, args, num_experts=0, **kargs):
 class VP_BICNN(data.Dataset):
     """modeled after Shawn1993 github user's Pytorch implementation of Kim2014 - cnn for text categorization"""
 
-    filename = "../data/wilkins_corrected.shuffled.51.bicnn.txt"
+    filename = "data/wilkins_corrected.shuffled.51.bicnn.txt"
 
     @staticmethod
     def sort_key(ex):
@@ -80,7 +80,7 @@ class VP_BICNN(data.Dataset):
             if os.path.exists(pkl_file_name):
                 examples = pickle.load(open(pkl_file_name, 'rb'))
             else:
-                with open(os.path.join(path, self.filename)) as f, open(pkl_file_name) as p:
+                with open(os.path.join(path, self.filename)) as f, open(pkl_file_name, 'wb') as p:
                     lines = f.readlines()
                     # pdb.set_trace()
                     k = 0

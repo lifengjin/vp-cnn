@@ -139,3 +139,7 @@ def clean_str(string):
 def pad2(x):
     x = ['<pad>', '<pad>', '<pad>', '<pad>'] + x
     return x
+
+
+def char_tokenizer(mstring):
+    return ['<pad>']*5 + list(mstring)

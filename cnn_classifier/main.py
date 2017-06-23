@@ -1,15 +1,15 @@
 #! /usr/bin/env python
 import datetime
 import os
-from . import model
-from . import mydatasets
+import model
+import mydatasets
 import numpy as np
 import torchtext.data as data
 import torchtext.datasets as datasets
-from . import train
-from . import vpdataset
+import train
+import vpdataset
 from parse_args import parse_args
-from .chatscript_file_generator import *
+from chatscript_file_generator import *
 
 # load VP dataset
 def vp(text_field, label_field, foldid, num_experts=0, **kargs):
@@ -46,11 +46,6 @@ def vp(text_field, label_field, foldid, num_experts=0, **kargs):
                          len(test_data)),
             **kargs)
     return train_iter, dev_iter, test_iter
-
-
-def char_tokenizer(mstring):
-    return ['<pad>']*5 + list(mstring)
-
 
 def check_vocab(field):
     itos = field.vocab.itos
@@ -92,7 +87,7 @@ def main():
         print("\nLoading data...")
 
         tokenizer = data.Pipeline(vpdataset.clean_str)
-        char_field = data.Field(lower=True, tokenize=char_tokenizer)
+        char_field = data.Field(lower=True, tokenize=vpdataset.char_tokenizer)
         word_field = data.Field(lower=True, tokenize=tokenizer)
         label_field = data.Field(sequential=False, use_vocab=False, preprocessing=int)
 

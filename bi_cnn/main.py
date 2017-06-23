@@ -1,13 +1,19 @@
-from .bicnn_model import bi_CNN_Text
+import sys
+import os
+sys.path.append(os.getcwd())
+print(sys.path)
+
+from bicnn_model import bi_CNN_Text
 import torch
 from cnn_classifier.parse_args import parse_args
 from torch.autograd import Variable
 from torch import nn
-from cnn_classifier.main import char_tokenizer
+from cnn_classifier.vpdataset import char_tokenizer
 from torchtext import data
-from .bicnn_vpdataset import *
+from bicnn_vpdataset import *
 from cnn_classifier.vpdataset import clean_str
-from . import train
+import train
+
 
 args = parse_args()
 prediction_file_handle = open(args.prediction_file_handle, 'w')
