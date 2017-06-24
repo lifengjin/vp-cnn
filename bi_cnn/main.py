@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.getcwd())
-print(sys.path)
+# print(sys.path)
 
 from bicnn_model import bi_CNN_Text
 import torch
@@ -37,24 +37,26 @@ train_iter_word, dev_iter_word, test_iter_word = vp_bicnn(word_field, label_fiel
                                                           repeat=False, sort=False, wv_type=args.word_vector,
                                                           wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
                                                           min_freq=args.min_freq)
-print(train_iters)
+# print(train_iters)
 for xfold in range(args.xfolds):
     # if xfold != 9:
     #     continue
+    log_file_handle.write('Fold {}, char\n'.format(xfold))
     train_iter = train_iters[xfold]
     dev_iter = dev_iters[xfold]
     # test_iter = test_iters[xfold]
     args.cuda = args.yes_cuda and torch.cuda.is_available()
+    print('cuda is {}'.format(args.cuda))
     model = bi_CNN_Text(args, 'char', vectors=None)
-    train.train(train_iter, dev_iter, model, args)
+    train.train(train_iter, dev_iter, model, args, log_file_handle=log_file_handle)
 
-
+    log_file_handle.write('Fold {}, word\n'.format(xfold))
     train_iter = train_iter_word[xfold]
     dev_iter = dev_iter_word[xfold]
     # test_iter = test_iter_word[xfold]
     model = bi_CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-    train.train(train_iter, dev_iter, model, args)
+    train.train(train_iter, dev_iter, model, args, log_file_handle=log_file_handle)
     # print("\nParameters:", file=log_file_handle)
     # for attr, value in sorted(args.__dict__.items()):
     #     print("\t{}={}".format(attr.upper(), value), file=log_file_handle)
-    #
+    log_file_handle.flush()

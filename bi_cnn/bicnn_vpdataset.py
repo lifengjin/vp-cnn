@@ -5,7 +5,7 @@ import math, random
 import pickle
 
 def vp_bicnn(text_field, label_field, args, num_experts=0, **kargs):
-    print(text_field, label_field, args.xfolds, num_experts)
+    # print(text_field, label_field, args.xfolds, num_experts)
     xfolds_data = VP_BICNN.splits(text_field, label_field, num_folds=args.xfolds,
                                                       num_experts=num_experts)
     if num_experts > 0:
@@ -28,8 +28,8 @@ def vp_bicnn(text_field, label_field, args, num_experts=0, **kargs):
             for i in range(num_experts):
                 this_train_iter, this_dev_iter, test_iter = data.Iterator.splits((xfolds_data[fold][0][i], xfolds_data[fold][1][i], xfolds_data[fold][2]),
                                                                                  batch_sizes=(args.batch_size,
-                                                                                              len(xfolds_data[fold][1][i]),
-                                                                                              len(xfolds_data[fold][2])), **kargs)
+                                                                                              args.batch_size,
+                                                                                            args.batch_size), **kargs)
                 train_iters.append(this_train_iter)
                 dev_iters.append(this_dev_iter)
             test_iters.append(test_iter)
@@ -41,8 +41,8 @@ def vp_bicnn(text_field, label_field, args, num_experts=0, **kargs):
             train_iter, dev_iter, test_iter = data.Iterator.splits(
                 (xfolds_data[fold][0], xfolds_data[fold][1], xfolds_data[fold][2]),
                 batch_sizes=(args.batch_size,
-                             len(xfolds_data[fold][1]),
-                             len(xfolds_data[fold][2])),
+                             args.batch_size,
+                             args.batch_size),
                 **kargs)
             train_iters.append(train_iter)
             dev_iters.append(dev_iter)
@@ -123,7 +123,7 @@ class VP_BICNN(data.Dataset):
         if shuffle: random.shuffle(examples)
         fields = [('s1', text_field), ('s2', text_field), ('label', label_field)]
         label_examples = []
-        label_filename = '../data/labels.txt'
+        label_filename = 'data/labels.txt'
         labels = {}
         with open(label_filename) as f:
             lines = f.readlines()
@@ -178,7 +178,7 @@ class VP_BICNN(data.Dataset):
                             break
                     train = [fold for idx, fold in enumerate(folds) if idx != foldid and idx != dev_id]
                     train = [item for sublist in train for item in sublist]
-                    print(dev_id)
+                    # print(dev_id)
                     dev = folds[dev_id]
                     fold_datasets.append((cls(text_field, label_field, examples=train + label_examples),
                                           cls(text_field, label_field, examples=dev),

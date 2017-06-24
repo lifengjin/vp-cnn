@@ -22,7 +22,9 @@ def train(train_iter, dev_iter, model, args, **kwargs):
     dev_loss = 0
     train_loss = 0
     for epoch in range(1, args.epochs+1):
+        i = -1
         for batch in train_iter:
+            i += 1
             s1, s2, target = batch.s1, batch.s2, batch.label
             s1.data.t_(), s2.data.t_() # batch first, index align
             _, index = torch.max(batch.label, 0)
@@ -39,8 +41,12 @@ def train(train_iter, dev_iter, model, args, **kwargs):
             # print(y)
             loss = F.nll_loss(y, index)
             loss.backward()
+            for param in model.parameters():
+                param.grad.data = param.grad.data / args.batch_size
             optimizer.step()
             train_loss += loss.data[0]
+            sys.stdout.write(
+                '\rEpoch {} Sample {} - loss: {:.6f} )'.format(epoch, i, loss.data[0]))
             # max norm constraint
             if args.max_norm > 0:
                 if not args.no_always_norm:
