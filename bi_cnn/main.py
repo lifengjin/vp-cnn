@@ -34,7 +34,7 @@ train_iters, dev_iters, test_iters = vp_bicnn(char_field, label_field, args=args
                                            min_freq=1)
 train_iter_word, dev_iter_word, test_iter_word = vp_bicnn(word_field, label_field, args=args,
                                                           num_experts=args.num_experts, device=args.device,
-                                                          repeat=False, sort=False, wv_type=args.word_vector,
+                                                          repeat=False, sort=False, shuffle=False, wv_type=args.word_vector,
                                                           wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
                                                           min_freq=args.min_freq)
 args.cuda = args.yes_cuda and torch.cuda.is_available()
@@ -47,8 +47,9 @@ for xfold in range(args.xfolds):
     train_iter = train_iters[xfold]
     dev_iter = dev_iters[xfold]
     # test_iter = test_iters[xfold]
-    model = bi_CNN_Text(args, 'char', vectors=None)
-    train.train(train_iter, dev_iter, model, args, log_file_handle=log_file_handle)
+
+    # model = bi_CNN_Text(args, 'char', vectors=None)
+    # train.train(train_iter, dev_iter, model, args, log_file_handle=log_file_handle)
 
     log_file_handle.write('Fold {}, word\n'.format(xfold))
     train_iter = train_iter_word[xfold]

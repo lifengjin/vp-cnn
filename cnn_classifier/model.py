@@ -9,20 +9,19 @@ class CNN_Text(nn.Module):
     def __init__(self, args, char_or_word, vectors=None):
         super(CNN_Text,self).__init__()
         self.args = args
-        
-        V = args.embed_num
+
         if char_or_word == 'char':
+            V = args.char_embed_num
             D = args.char_embed_dim
-        else:
-            D = args.word_embed_dim
-        C = args.class_num
-        Ci = 1
-        Co = args.kernel_num
-        if char_or_word == 'char':
+            Co = args.char_kernel_num
             Ks = args.char_kernel_sizes
         else:
+            V = args.word_embed_num
+            D = args.word_embed_dim
+            Co = args.word_kernel_num
             Ks = args.word_kernel_sizes
-
+        C = args.class_num
+        Ci = 1
         self.embed = nn.Embedding(V, D, padding_idx=1)
         if vectors is not None:
             self.embed.weight.data = vectors

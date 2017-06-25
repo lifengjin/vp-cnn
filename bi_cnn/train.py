@@ -29,6 +29,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
         for batch in train_iter:
             i += 1
             s1, s2, target = batch.s1, batch.s2, batch.label
+            assert torch.sum(batch.label.data) == -357, str(torch.sum(batch.label.data))
             s1.data.t_(), s2.data.t_()  # batch first, index align
             _, index = torch.max(batch.label, 0)
             # print(index)

@@ -14,9 +14,9 @@ def parse_args():
     parser.add_argument('-epochs', type=int, default=25, help='number of epochs for train [default: 25]')
     parser.add_argument('-word-epochs', type=int, default=25, help='number of epochs for train [default: 25]')
     parser.add_argument('-char-epochs', type=int, default=25, help='number of epochs for train [default: 25]')
-    parser.add_argument('-batch-size', type=int, default=50, help='batch size for training [default: 50]')
-    parser.add_argument('-word-batch-size', type=int, default=50, help='batch size for training [default: 50]')
-    parser.add_argument('-char-batch-size', type=int, default=50, help='batch size for training [default: 50]')
+    parser.add_argument('-batch-size', type=int, default=359, help='batch size for training [default: 359]')
+    parser.add_argument('-word-batch-size', type=int, default=359, help='batch size for training [default: 359]')
+    parser.add_argument('-char-batch-size', type=int, default=359, help='batch size for training [default: 359]')
     parser.add_argument('-log-interval', type=int, default=1,
                         help='how many steps to wait before logging training status [default: 1]')
     parser.add_argument('-log-file', type=str, default=datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + 'result.txt',
@@ -45,8 +45,8 @@ def parse_args():
     parser.add_argument('-char-kernel-num', type=int, default=400, help='number of each kind of kernel')
     # parser.add_argument('-kernel-sizes', type=str, default='3,4,5', help='comma-separated kernel size to use for convolution')
     # parser.add_argument('-char-kernel-sizes', type=str, default='2,3,4,5,6', help='comma-separated kernel size to use for char convolution')
-    parser.add_argument('-char-kernel-sizes', metavar='N', type=int, nargs='+', default=[2,3,4,5,6], help='comma-separated kernel size to use for char convolution')
-    parser.add_argument('-word-kernel-sizes', metavar='N', type=int, nargs='+', default=[3,4,5], help='comma-separated kernel size to use for word convolution')
+    parser.add_argument('-char-kernel-sizes', metavar='N', type=int, nargs='+', default=[2,3,4,5,6], help='space-separated kernel size to use for char convolution')
+    parser.add_argument('-word-kernel-sizes', metavar='N', type=int, nargs='+', default=[3,4,5], help='space-separated kernel size to use for word convolution')
 
     # parser.add_argument('-word-kernel-sizes', type=str, default='3,4,5', help='comma-separated kernel size to use for word convolution')
     parser.add_argument('-static', action='store_true', default=False, help='fix the embedding')
