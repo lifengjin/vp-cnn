@@ -131,3 +131,28 @@ def eval(data_iter, model, args, **kwargs):
     if args.verbose:
         print('Evaluation - acc: {:.6f} )'.format(acc), file=kwargs['log_file_handle'])
     return acc
+
+def train_label(model, train_iter, args):
+    if args.cuda:
+        model.cuda()
+    optimizer = torch.optim.Adadelta(model.parameters(), rho=0.95)
+    model.train()
+    for epoch in range(1, args.epochs + 1):
+        train_loss = 0
+        i = -1
+        for batch in train_iter:
+            i += 1
+            s1, s2, target = batch.s1, batch.s2, batch.label
+            s1.data.t_(), s2.data.t_()  # batch first, index align
+
+            assert s1.volatile is False and target.volatile is False
+            optimizer.zero_grad()
+            sim_score = model.compute_similarity((s1, s2))
+            loss = F.smooth_l1_loss(sim_score, target)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.data[0]
+        else:
+            sys.stdout.write(
+                '\rEpoch {} - loss: {:.6f} batch: {})'.format(epoch, train_loss / len(train_iter.dataset)))
+    return model

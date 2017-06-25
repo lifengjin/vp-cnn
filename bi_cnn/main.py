@@ -12,7 +12,8 @@ from cnn_classifier.vpdataset import char_tokenizer
 from torchtext import data
 from bicnn_vpdataset import *
 from cnn_classifier.vpdataset import clean_str
-import train
+import bicnn_train
+from label_dataset import label_iter
 
 
 args = parse_args()
@@ -39,7 +40,17 @@ train_iter_word, dev_iter_word, test_iter_word = vp_bicnn(word_field, label_fiel
                                                           min_freq=args.min_freq)
 args.cuda = args.yes_cuda and torch.cuda.is_available()
 print('cuda is {}'.format(args.cuda))
+args.word_embed_num = len(word_field.vocab.itos)
+args.char_embed_num = len(char_field.vocab.itos)
 # print(train_iters)
+
+print("start pretraining the CNNs")
+
+labeldata_iter = label_iter(word_field)
+
+word_model = bi_CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+bicnn_train.train_label(word_model, labeldata_iter)
+
 for xfold in range(args.xfolds):
     # if xfold != 9:
     #     continue
@@ -55,8 +66,8 @@ for xfold in range(args.xfolds):
     train_iter = train_iter_word[xfold]
     dev_iter = dev_iter_word[xfold]
     # test_iter = test_iter_word[xfold]
-    model = bi_CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-    train.train(train_iter, dev_iter, model, args, log_file_handle=log_file_handle)
+    # model = bi_CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+    bicnn_train.train(train_iter, dev_iter, word_model, args, log_file_handle=log_file_handle)
     # print("\nParameters:", file=log_file_handle)
     # for attr, value in sorted(args.__dict__.items()):
     #     print("\t{}={}".format(attr.upper(), value), file=log_file_handle)
