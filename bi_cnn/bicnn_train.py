@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import sys
 import copy
+from tqdm import *
 
 
 def train(train_iter, dev_iter, model, args, **kwargs):
@@ -15,7 +16,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
         optimizer = torch.optim.Adadelta(model.parameters(), rho=0.95)
     else:
         raise Exception("bad optimizer!")
-
+    multiplier_batch = int(args.batch_size / 359)
     steps = 0
     model.train()
     best_acc = 0
@@ -29,24 +30,26 @@ def train(train_iter, dev_iter, model, args, **kwargs):
         for batch in train_iter:
             i += 1
             s1, s2, target = batch.s1, batch.s2, batch.label
-            assert torch.sum(batch.label.data) == -357, str(torch.sum(batch.label.data))
+            assert torch.sum(batch.label.data) == -357 * multiplier_batch, str(torch.sum(batch.label.data))
             s1.data.t_(), s2.data.t_()  # batch first, index align
-            _, index = torch.max(batch.label, 0)
+            target = target.view(multiplier_batch, -1)
+            val, index = torch.max(target, 1)
+            assert torch.sum(val) == multiplier_batch
             # print(index)
 
-            assert s1.volatile is False and target.volatile is False
+            assert s1.volatile is False and index.volatile is False
             # print(feature, target)
             optimizer.zero_grad()
-            sim_score = model((s1, s2))
+            sim_score = model.compute_similarity((s1, s2))
 
             # loss = objf(sim_score[0], sim_score[1], target)
-            y = F.cosine_similarity(sim_score[0], sim_score[1]).view(1, -1)
+            y = sim_score.view(multiplier_batch, -1)
             y = F.log_softmax(y)
-            # print(y)
+            print(y.size())
             loss = F.nll_loss(y, index)
             loss.backward()
             for param in model.parameters():
-                param.grad.data = param.grad.data / args.batch_size
+                param.grad.data = param.grad.data / 359
             _, y_index = torch.max(y, 1)
             if torch.equal(y_index.data, index.data):
                 local_acc = 1
@@ -71,11 +74,10 @@ def train(train_iter, dev_iter, model, args, **kwargs):
                     model.cnn.fc1.weight.data.renorm_(2, 0, args.max_norm)
 
             steps += 1
-        else:
-            sys.stdout.write(
+        sys.stdout.write(
                 '\rEpoch {} - loss: {:.6f} acc: {} batch: {})'.format(epoch, train_loss / len(train_iter.dataset),
                                                                       acc / (i + 1), args.batch_size))
-            train_loss = 0
+        train_loss = 0
             # if steps % args.test_interval == 0:
             #     if args.verbose:
             #         corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
@@ -137,22 +139,26 @@ def train_label(model, train_iter, args):
         model.cuda()
     optimizer = torch.optim.Adadelta(model.parameters(), rho=0.95)
     model.train()
+    objf = torch.nn.MSELoss()
     for epoch in range(1, args.epochs + 1):
         train_loss = 0
-        i = -1
-        for batch in train_iter:
-            i += 1
-            s1, s2, target = batch.s1, batch.s2, batch.label
+        this_epoch_iter = train_iter.__iter__()
+        print("epoch {} for pretraining".format(epoch))
+        for i in trange(len(train_iter)):
+            batch = next(this_epoch_iter)
+            s1, s2, target = batch.s1, batch.s2, batch.target
             s1.data.t_(), s2.data.t_()  # batch first, index align
-
+            # print(s1.size(), s2.size())
             assert s1.volatile is False and target.volatile is False
+            assert isinstance(s1.data, torch.cuda.LongTensor), type(s1.data)
             optimizer.zero_grad()
             sim_score = model.compute_similarity((s1, s2))
-            loss = F.smooth_l1_loss(sim_score, target)
+            # print(sim_score.size(), target.size())
+            # print(sim_score)
+            loss = objf(sim_score, target)
             loss.backward()
             optimizer.step()
             train_loss += loss.data[0]
-        else:
-            sys.stdout.write(
-                '\rEpoch {} - loss: {:.6f} batch: {})'.format(epoch, train_loss / len(train_iter.dataset)))
+        sys.stdout.write(
+                'Epoch {} - loss: {:.6f})'.format(epoch, train_loss / len(train_iter.dataset)))
     return model

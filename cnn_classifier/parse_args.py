@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument('-epochs', type=int, default=25, help='number of epochs for train [default: 25]')
     parser.add_argument('-word-epochs', type=int, default=25, help='number of epochs for train [default: 25]')
     parser.add_argument('-char-epochs', type=int, default=25, help='number of epochs for train [default: 25]')
-    parser.add_argument('-batch-size', type=int, default=359, help='batch size for training [default: 359]')
+    parser.add_argument('-batch-size', type=int, default=359 * 30, help='batch size for training [default: 359]')
     parser.add_argument('-word-batch-size', type=int, default=359, help='batch size for training [default: 359]')
     parser.add_argument('-char-batch-size', type=int, default=359, help='batch size for training [default: 359]')
     parser.add_argument('-log-interval', type=int, default=1,

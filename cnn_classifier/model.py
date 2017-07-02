@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import init
 import torch.nn.functional as F
 from torch import autograd
+import random
 
 class CNN_Text(nn.Module):
     
@@ -112,3 +113,52 @@ class StackingNet(nn.Module):
             output += input * self.params[index].expand(input.size())
         output = F.log_softmax(output)
         return output
+
+class Memory:
+    def __init__(self, mem_size, key_size):
+        self.K = autograd.Variable(torch.zeros(key_size, mem_size))
+        self.V = autograd.Variable(torch.zeros(mem_size).long())
+        self.A = autograd.Variable(torch.zeros(mem_size).long())
+        self.knn = 256
+        self.query_indices = 0
+        self.query_sims = 0
+        self.x = 0
+
+    def query(self, x):
+        nn = torch.dot(x, self.K)
+        self.query_sims, self.query_indices = torch.topk(nn, self.knn, dim=1)
+        self.x = x
+        return self.V[self.query_indices[:,0]]
+
+    def loss_update(self, y, alpha=0.1):
+        accuracy = self.V[self.query_indices[:,0]] == y
+        # mask = self.query_indices[accuracy, 0]
+        # self.K[mask] = torch.renorm(self.K[mask] + self.x.data)
+        # self.A[mask] = 0
+        for row_index, acc in enumerate(accuracy):
+            self.A += 1
+            if acc:
+                positive_neighbor = self.query_sims[row_index, 0]
+                negative_neighbor = self.query_sims[row_index][self.query_indices[row_index] != y[row_index]][0]
+                loss = negative_neighbor - positive_neighbor + alpha if negative_neighbor - positive_neighbor + alpha > 0 else 0
+                self.A[self.query_indices[row_index,0]] = 0
+                self.K[self.query_indices[row_index,0]] = torch.renorm(self.K[self.query_indices[row_index,0]] + x.data[row_index])
+            else:
+                negative_neighbor = self.query_sims[row_index, 0]
+                if not any(self.query_indices[row_index] == y[row_index]):
+                    positive_neighbors = self.K[self.V == y[row_index]]
+                    positive_neighbor = random.choice(positive_neighbors)
+                    positive_neighbor = torch.dot(positive_neighbor, x[row_index])
+                else:
+                    positive_neighbor = self.query_sims[row_index][self.query_indices[row_index] == y[row_index]][0]
+                _, oldest = torch.topk(self.A, 10)
+                oldest_index = random.choice(oldest)
+                self.K[oldest_index] = x.data[row_index]
+                self.V[oldest_index] = y.data[row_index]
+                self.A[oldest_index] = 0
+                loss = negative_neighbor - positive_neighbor + alpha
+        return loss
+
+
+
+

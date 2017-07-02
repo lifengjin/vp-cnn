@@ -46,10 +46,20 @@ args.char_embed_num = len(char_field.vocab.itos)
 
 print("start pretraining the CNNs")
 
-labeldata_iter = label_iter(word_field)
+labeldata_word_iter = label_iter(word_field)
+labeldata_char_iter = label_iter(char_field, multiplier=5)
 
 word_model = bi_CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-bicnn_train.train_label(word_model, labeldata_iter)
+bicnn_train.train_label(word_model, labeldata_word_iter, args)
+word_model_dict = word_model.state_dict()
+word_model = None
+labeldata_word_iter = None
+
+char_model = bi_CNN_Text(args, 'char')
+bicnn_train.train_label(char_model, labeldata_char_iter, args)
+char_model_dict = char_model.state_dict()
+char_model = None
+labeldata_char_iter = None
 
 for xfold in range(args.xfolds):
     # if xfold != 9:
@@ -59,14 +69,16 @@ for xfold in range(args.xfolds):
     dev_iter = dev_iters[xfold]
     # test_iter = test_iters[xfold]
 
-    # model = bi_CNN_Text(args, 'char', vectors=None)
-    # train.train(train_iter, dev_iter, model, args, log_file_handle=log_file_handle)
+    char_model = bi_CNN_Text(args, 'char', vectors=None)
+    char_model.load_state_dict(char_model_dict)
+    bicnn_train.train(train_iter, dev_iter, char_model, args, log_file_handle=log_file_handle)
 
     log_file_handle.write('Fold {}, word\n'.format(xfold))
     train_iter = train_iter_word[xfold]
     dev_iter = dev_iter_word[xfold]
     # test_iter = test_iter_word[xfold]
-    # model = bi_CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+    word_model = bi_CNN_Text(args, 'word', vectors=None).load_state_dict(word_model)
+    word_model.load_state_dict(word_model_dict)
     bicnn_train.train(train_iter, dev_iter, word_model, args, log_file_handle=log_file_handle)
     # print("\nParameters:", file=log_file_handle)
     # for attr, value in sorted(args.__dict__.items()):

@@ -78,6 +78,7 @@ class VP_BICNN(data.Dataset):
             examples = []
             pkl_file_name = os.path.join(path, self.filename.replace('txt', 'pkl'))
             if os.path.exists(pkl_file_name):
+                print('pickle exists. loading examples from {}'.format(pkl_file_name))
                 examples = pickle.load(open(pkl_file_name, 'rb'))
             else:
                 with open(os.path.join(path, self.filename)) as f, open(pkl_file_name, 'wb') as p:
