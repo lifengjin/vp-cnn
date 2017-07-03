@@ -14,7 +14,7 @@ def bi_label_iter(text_field, multiplier = 30):
 
 class bi_Label_dataset(data.Dataset):
 
-    label_file = '/home/jin.544/mulproj/vp-cnn/data/labels.txt'
+    label_file = '/home/jin.544/vp-cnn/data/labels.txt'
 
     def __init__(self, text_field):
         label_field = data.Field(sequential=False, use_vocab=False, preprocessing=float, tensor_type=torch.FloatTensor)
@@ -37,7 +37,7 @@ class bi_Label_dataset(data.Dataset):
 
 class Label_dataset(data.Dataset):
 
-    label_file = '/home/jin.544/mulproj/vp-cnn/data/labels.txt'
+    label_file = '/home/jin.544/vp-cnn/data/labels.txt'
 
     def __init__(self, text_field):
         label_field = data.Field(sequential=False, use_vocab=False, preprocessing=int, tensor_type=torch.LongTensor)
