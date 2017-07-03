@@ -162,33 +162,42 @@ def train(train_iter, dev_iter, model, args, **kwargs):
             # print(train_iter.data().fields['text'].vocab.stoi)
             if args.cuda:
                 feature, target = feature.cuda(), target.cuda()
+            print(feature.size(), target.size())
             assert feature.volatile is False and target.volatile is False
             # print(feature, target)
             optimizer.zero_grad()
+            print('1')
             logit = model(feature)
+            print('2')
             loss = F.nll_loss(logit, target)
+            print('3')
             loss.backward()
+            print('4')
             optimizer.step()
-
             # max norm constraint
-            if args.max_norm > 0:
-                if not args.no_always_norm:
-                    for row in model.fc1.weight.data:
-                        norm = row.norm() + 1e-7
-                        row.div_(norm).mul_(args.max_norm)
-                else:
-                    model.fc1.weight.data.renorm_(2, 0, args.max_norm)
-
-            steps += 1
-            if steps % args.log_interval == 0:
-                corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
-                accuracy = corrects/batch.batch_size * 100.0
-                sys.stdout.write(
-                    '\rBatch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
-                                                                             loss.data[0],
-                                                                             accuracy,
-                                                                             corrects,
-                                                                             batch.batch_size))
+            print('6')
+            # if args.max_norm > 0:
+            #     if not args.no_always_norm:
+            #         for row in model.fc1.weight.data:
+            #             norm = row.norm() + 1e-7
+            #             row.div_(norm).mul_(args.max_norm)
+            #     else:
+            #         model.fc1.weight.data.renorm_(2, 0, args.max_norm)
+            # steps += 1
+            print(target.data)
+            print('5')
+            # if steps % args.log_interval == 0:
+            #     # print(target.data)
+            #     indices = torch.max(autograd.Variable(logit.data), 1)[1]
+            #     indices = indices.view(target.size())
+            #     corrects = (indices.data == target.data).sum()
+            #     accuracy = corrects/batch.batch_size * 100.0
+            #     sys.stdout.write(
+            #         '\rBatch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
+            #                                                                  loss.data[0],
+            #                                                                  accuracy,
+            #                                                                  corrects,
+            #                                                                  batch.batch_size))
             if steps % args.test_interval == 0:
                 if args.verbose:
                     corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
@@ -199,6 +208,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
                                                                              accuracy,
                                                                              corrects,
                                                                              batch.batch_size), file=kwargs['log_file_handle'])
+        exit()
         acc = eval(dev_iter, model, args, **kwargs)
         if acc > best_acc:
             best_acc = acc
@@ -214,21 +224,24 @@ def train(train_iter, dev_iter, model, args, **kwargs):
     return acc, model
 
 def eval(data_iter, model, args, **kwargs):
+    print('e0')
     model.eval()
     corrects, avg_loss = 0, 0
     for batch in data_iter:
+        print('e1')
         feature, target = batch.text, batch.label
         feature.data.t_(), target.data.sub_(0)  # batch first, index align
         if args.cuda:
             feature, target = feature.cuda(), target.cuda()
-
+        print('e2')
         logit = model(feature)
         loss = F.nll_loss(logit, target, size_average=False)
-
+        print('e3')
         avg_loss += loss.data[0]
+        print('e4')
         corrects += (torch.max(logit, 1)
                      [1].view(target.size()).data == target.data).sum()
-
+        print('e5')
     size = len(data_iter.dataset)
     avg_loss = avg_loss/size
     accuracy = corrects/size * 100.0

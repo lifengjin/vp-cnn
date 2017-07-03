@@ -83,7 +83,7 @@ def parse_args():
 
     # testing parameters
     parser.add_argument('-embed-num', type=int, default=100, help='for testing purposes. do not use.')
-    parser.add_argument('-class-num', type=int, default=10, help='for testing purposes. do not use.')
+    parser.add_argument('-class-num', type=int, default=359, help='for testing purposes. do not use.')
     # end of testing
     args = parser.parse_args()
 

@@ -55,10 +55,13 @@ print("start pretraining the CNNs")
 
 labeldata_word_iter = label_iter(word_field)
 # labeldata_char_iter = label_iter(char_field, multiplier=5)
-label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+# label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+label_model = CNN_Text(args, 'word', vectors=None)
 label_model.cuda()
 _, label_model = train(labeldata_word_iter, labeldata_word_iter, label_model, args)
-features, labels = next(labeldata_word_iter.__iter__())
+one_iter = labeldata_word_iter.__iter__()
+one_batch = next(one_iter)
+features, labels = one_batch.text, one_batch.label
 hid_label_reps = label_model.confidence(features)
 # word_model = None
 # labeldata_word_iter = None

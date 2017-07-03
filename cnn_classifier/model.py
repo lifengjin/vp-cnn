@@ -4,6 +4,7 @@ from torch.nn import init
 import torch.nn.functional as F
 from torch import autograd
 import random
+from utils.future_ops import normalize
 
 class CNN_Text(nn.Module):
     
@@ -116,8 +117,8 @@ class StackingNet(nn.Module):
 
 class Memory:
     def __init__(self,mem_size, key_size):
-        self.K = autograd.Variable(torch.ones(mem_size, key_size).t())
-        self.K /= self.K.norm(2, 0)
+        self.K = autograd.Variable(normalize(torch.ones(mem_size, key_size)).t())
+        # self.K = torch.norm(self.K, 2, 0).expand_as(self.K)
         self.V = autograd.Variable(torch.zeros(mem_size).long())
         self.A = autograd.Variable(torch.zeros(mem_size).long())
         self.knn = 256
@@ -159,7 +160,7 @@ class Memory:
                 negative_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index]] != y[row_index]][0]
                 # print('positive similarity score is {}, and the best negative score is {}'.format(positive_neighbor, negative_neighbor))
                 loss += negative_neighbor - positive_neighbor + alpha if (negative_neighbor - positive_neighbor + alpha).data[0] > 0 else 0
-                self.index_vector_target_update.append((self.query_indices[row_index,0], (self.K[:, self.query_indices[row_index,0].data[0]] + autograd.Variable(x.data[row_index])) / torch.norm(self.K[:, self.query_indices[row_index,0].data[0]] + autograd.Variable(x.data[row_index])), None))
+                self.index_vector_target_update.append((self.query_indices[row_index,0],normalize(self.K[:, self.query_indices[row_index,0].data[0]] + autograd.Variable(x.data[row_index]), dim=0), None))
                 # print('update the K matrix with {} at column {}'.format(self.index_vector_target_update[0][1], self.index_vector_target_update[0][0]))
             else:
                 # print('predicted label is wrong.')
@@ -173,7 +174,7 @@ class Memory:
                         # oldest_index = random.choice(oldest.data)
                         # print('no positive neighbor found in V. pick the oldest position in A at {}'.format(oldest_index))
                         self.index_vector_target_update.append((oldest_index, autograd.Variable(
-                            self.x.data[row_index] / torch.norm(self.x.data[row_index])), y.data[row_index]))
+                            normalize(self.x.data[row_index], dim=0)), y.data[row_index]))
                         # print('update the K matrix with {} at column {}'.format(self.index_vector_target_update[0][1],
                         #                                                         self.index_vector_target_update[0][0]))
 
@@ -193,7 +194,7 @@ class Memory:
                 oldest_index = torch.max(self.A, 0)[1].data[0]
                 # oldest_index = random.choice(oldest.data)
                 # print(oldest_index, row_index)
-                self.index_vector_target_update.append((oldest_index, autograd.Variable(self.x.data[row_index] /  torch.norm(self.x.data[row_index])), y.data[row_index]))
+                self.index_vector_target_update.append((oldest_index, autograd.Variable(normalize(self.x.data[row_index], dim=0)), y.data[row_index]))
                 # print('update the K matrix with {} at column {}'.format(self.index_vector_target_update[0][1],
                 #                                                         self.index_vector_target_update[0][0]))
                 loss += negative_neighbor - positive_neighbor + alpha
@@ -228,18 +229,17 @@ if __name__ == '__main__':
     a.V[2] = 1
     a.K[:,2] = x.data
     print(a.K)
-    outside_K = autograd.Variable(torch.Tensor([[0.3, 0.1, 0.2],[0.1, 0.1, 0.7]]) / torch.norm(torch.Tensor([[0.3, 0.1, 0.2],[0.1, 0.1, 0.7]]), 2, 1, keepdim=True) )
+    outside_K = autograd.Variable(normalize(torch.Tensor([[0.3, 0.1, 0.2],[0.1, 0.1, 0.7]]) ))
     outside_V = autograd.Variable(torch.LongTensor([2, 3]))
     # print(a.query(x))
     a.init_K(outside_K, outside_V)
     y = autograd.Variable(torch.LongTensor([1]))
-    loss = a.compute_loss(x,y)
+    loss, _ = a.compute_loss(x,y)
     loss.backward()
     a.update()
     print(a.K, a.V, a.A)
 
-    xp = torch.rand(4,3)
-    xp /= xp.norm(2, 1, keepdim=True)
+    xp = normalize(torch.rand(4,3))
     print(xp)
     xp = autograd.Variable(xp, requires_grad=True)
     y = autograd.Variable(torch.LongTensor([1, 2, 3, 2]))
@@ -247,7 +247,7 @@ if __name__ == '__main__':
         # print(row.view(1, -1))
         # print(a.query(row.view(1, -1)))
 
-        loss = a.compute_loss(row.view(1, -1), y[i])
+        loss, _ = a.compute_loss(row.view(1, -1), y[i])
         print(loss)
         if not isinstance(loss,int):
             loss.backward()
