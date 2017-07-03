@@ -115,49 +115,144 @@ class StackingNet(nn.Module):
         return output
 
 class Memory:
-    def __init__(self, mem_size, key_size):
-        self.K = autograd.Variable(torch.zeros(key_size, mem_size))
+    def __init__(self,mem_size, key_size):
+        self.K = autograd.Variable(torch.ones(mem_size, key_size).t())
+        self.K /= self.K.norm(2, 0)
         self.V = autograd.Variable(torch.zeros(mem_size).long())
         self.A = autograd.Variable(torch.zeros(mem_size).long())
         self.knn = 256
         self.query_indices = 0
         self.query_sims = 0
         self.x = 0
+        self.index_vector_target_update = []
 
     def query(self, x):
-        nn = torch.dot(x, self.K)
+        self.index_vector_target_update = []
+        nn = torch.matmul(x, self.K)
+        # print('similarity scores are {} '.format(nn))
         self.query_sims, self.query_indices = torch.topk(nn, self.knn, dim=1)
+        # print('top K similarity scores are {} and the indices are {} '.format(self.query_sims, self.query_indices))
         self.x = x
+        # print('the predicted label is {}'.format(self.query_indices[:,0]))
         return self.V[self.query_indices[:,0]]
 
-    def loss_update(self, y, alpha=0.1):
+    def compute_loss(self, x, y, alpha=0.1, update=True):
+        self.index_vector_target_update = []
+        # print('x is {}'.format(x))
+        # print('K is {}'.format(self.K))
+        self.query(x)
         accuracy = self.V[self.query_indices[:,0]] == y
+        if not update:
+            return accuracy
+        # print('accuracy',accuracy)
+        loss = 0
         # mask = self.query_indices[accuracy, 0]
         # self.K[mask] = torch.renorm(self.K[mask] + self.x.data)
         # self.A[mask] = 0
         for row_index, acc in enumerate(accuracy):
             self.A += 1
-            if acc:
+            # print(acc, row_index)
+            if acc.data[0] == 1:
+                # print('predicted label is right.')
                 positive_neighbor = self.query_sims[row_index, 0]
-                negative_neighbor = self.query_sims[row_index][self.query_indices[row_index] != y[row_index]][0]
-                loss = negative_neighbor - positive_neighbor + alpha if negative_neighbor - positive_neighbor + alpha > 0 else 0
-                self.A[self.query_indices[row_index,0]] = 0
-                self.K[self.query_indices[row_index,0]] = torch.renorm(self.K[self.query_indices[row_index,0]] + x.data[row_index])
+                # print(self.query_sims[row_index], self.V[self.query_indices[row_index]] != y[row_index])
+                negative_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index]] != y[row_index]][0]
+                # print('positive similarity score is {}, and the best negative score is {}'.format(positive_neighbor, negative_neighbor))
+                loss += negative_neighbor - positive_neighbor + alpha if (negative_neighbor - positive_neighbor + alpha).data[0] > 0 else 0
+                self.index_vector_target_update.append((self.query_indices[row_index,0], (self.K[:, self.query_indices[row_index,0].data[0]] + autograd.Variable(x.data[row_index])) / torch.norm(self.K[:, self.query_indices[row_index,0].data[0]] + autograd.Variable(x.data[row_index])), None))
+                # print('update the K matrix with {} at column {}'.format(self.index_vector_target_update[0][1], self.index_vector_target_update[0][0]))
             else:
+                # print('predicted label is wrong.')
                 negative_neighbor = self.query_sims[row_index, 0]
-                if not any(self.query_indices[row_index] == y[row_index]):
-                    positive_neighbors = self.K[self.V == y[row_index]]
-                    positive_neighbor = random.choice(positive_neighbors)
-                    positive_neighbor = torch.dot(positive_neighbor, x[row_index])
+                # print('negative similarity score is {}'.format(negative_neighbor))
+                if not any((self.V[self.query_indices[row_index]] == y[row_index]).data):
+                    # print('topk has no correct label. in V there is {}'.format(self.V == y.data[row_index]))
+                    positive_neighbors = self.V == y.data[row_index]
+                    if not any(positive_neighbors.data):
+                        oldest_index = torch.max(self.A, 0)[1].data[0]
+                        # oldest_index = random.choice(oldest.data)
+                        # print('no positive neighbor found in V. pick the oldest position in A at {}'.format(oldest_index))
+                        self.index_vector_target_update.append((oldest_index, autograd.Variable(
+                            self.x.data[row_index] / torch.norm(self.x.data[row_index])), y.data[row_index]))
+                        # print('update the K matrix with {} at column {}'.format(self.index_vector_target_update[0][1],
+                        #                                                         self.index_vector_target_update[0][0]))
+
+                        continue
+                    if torch.numel(torch.nonzero(positive_neighbors.data)) > 1:
+                        positive_neighbor = self.K[:, random.choice(torch.nonzero(positive_neighbors.data))[0,0]]
+                        # print('V has multiple correct label, pick one {}'.format(positive_neighbor))
+                    else:
+                        positive_neighbor = self.K[:,torch.nonzero(positive_neighbors.data)[0,0]]
+                        # print('V has only 1 correct label, pick one {}'.format(positive_neighbor))
+                    # print(positive_neighbor.size(), self.x[row_index].size())
+                    positive_neighbor = torch.dot(positive_neighbor, self.x[row_index])
+                    # print('positive similarity is {}'.format(positive_neighbor))
                 else:
-                    positive_neighbor = self.query_sims[row_index][self.query_indices[row_index] == y[row_index]][0]
-                _, oldest = torch.topk(self.A, 10)
-                oldest_index = random.choice(oldest)
-                self.K[oldest_index] = x.data[row_index]
-                self.V[oldest_index] = y.data[row_index]
-                self.A[oldest_index] = 0
-                loss = negative_neighbor - positive_neighbor + alpha
-        return loss
+                    positive_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index]] == y[row_index]][0]
+                    # print('topk has the right label. the sim score is {}'.format(positive_neighbor))
+                oldest_index = torch.max(self.A, 0)[1].data[0]
+                # oldest_index = random.choice(oldest.data)
+                # print(oldest_index, row_index)
+                self.index_vector_target_update.append((oldest_index, autograd.Variable(self.x.data[row_index] /  torch.norm(self.x.data[row_index])), y.data[row_index]))
+                # print('update the K matrix with {} at column {}'.format(self.index_vector_target_update[0][1],
+                #                                                         self.index_vector_target_update[0][0]))
+                loss += negative_neighbor - positive_neighbor + alpha
+                # print('loss is {}'.format(loss))
+        return loss, accuracy
+
+    def update(self):
+        for t in self.index_vector_target_update:
+            self.K[:, t[0].data[0] if not isinstance(t[0], int) else t[0]] = t[1]
+            self.A[t[0]] = 0
+            if t[2] is not None:
+                self.V[t[0]] = t[2]
+
+    def init_K(self, outside_k, outside_v):
+        self.K.data[:, :len(outside_k.data)].copy_(outside_k.data.t())
+        self.V.data[:len(outside_v.data)].copy_(outside_v.data)
+        self.A.data[:len(outside_v)] = 0
+
+    def cuda(self):
+        self.K = self.K.cuda()
+        self.V = self.V.cuda()
+        self.A = self.A.cuda()
+
+
+if __name__ == '__main__':
+
+    x = autograd.Variable(torch.Tensor([0.1, 0.1, 0.2]).view(1, -1) / torch.norm(torch.Tensor([0.1, 0.1, 0.2])) )
+    x.requires_grad = True
+    print(x)
+    a = Memory(10, 3)
+    a.knn = 5
+    a.V[2] = 1
+    a.K[:,2] = x.data
+    print(a.K)
+    outside_K = autograd.Variable(torch.Tensor([[0.3, 0.1, 0.2],[0.1, 0.1, 0.7]]) / torch.norm(torch.Tensor([[0.3, 0.1, 0.2],[0.1, 0.1, 0.7]]), 2, 1, keepdim=True) )
+    outside_V = autograd.Variable(torch.LongTensor([2, 3]))
+    # print(a.query(x))
+    a.init_K(outside_K, outside_V)
+    y = autograd.Variable(torch.LongTensor([1]))
+    loss = a.compute_loss(x,y)
+    loss.backward()
+    a.update()
+    print(a.K, a.V, a.A)
+
+    xp = torch.rand(4,3)
+    xp /= xp.norm(2, 1, keepdim=True)
+    print(xp)
+    xp = autograd.Variable(xp, requires_grad=True)
+    y = autograd.Variable(torch.LongTensor([1, 2, 3, 2]))
+    for i, row in enumerate(xp):
+        # print(row.view(1, -1))
+        # print(a.query(row.view(1, -1)))
+
+        loss = a.compute_loss(row.view(1, -1), y[i])
+        print(loss)
+        if not isinstance(loss,int):
+            loss.backward()
+        a.update()
+    print(a.K, a.V, a.A)
 
 
 

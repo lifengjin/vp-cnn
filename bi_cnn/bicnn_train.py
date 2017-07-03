@@ -4,8 +4,109 @@ import sys
 import copy
 from tqdm import *
 
+def memory_train(train_iter, dev_iter, model, memory, args, **kwargs):
+    if args.cuda:
+        model.cuda()
+    if args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(model.cnn.parameters(), lr=args.lr, weight_decay=args.l2)
+    elif args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD(model.cnn.parameters(), lr=args.lr, weight_decay=args.l2)
+    elif args.optimizer == 'adadelta':
+        optimizer = torch.optim.Adadelta(model.cnn.parameters(), rho=0.95)
+    else:
+        raise Exception("bad optimizer!")
 
-def train(train_iter, dev_iter, model, args, **kwargs):
+    steps = 0
+    model.train()
+    best_acc = 0
+    best_model = None
+    for epoch in range(1, args.epochs+1):
+        for batch in train_iter:
+            feature, target = batch.text, batch.label
+            feature.data.t_(), target.data.sub_(0)  # batch first, index align
+            # print(feature)
+            # print(train_iter.data().fields['text'].vocab.stoi)
+            if args.cuda:
+                feature, target = feature.cuda(), target.cuda()
+            assert feature.volatile is False and target.volatile is False
+            # print(feature, target)
+            optimizer.zero_grad()
+            accuracy, loss = model(feature, target)
+            loss.backward()
+            optimizer.step()
+            model.update_mem()
+
+            # # max norm constraint
+            # if args.max_norm > 0:
+            #     if not args.no_always_norm:
+            #         for row in model.fc1.weight.data:
+            #             norm = row.norm() + 1e-7
+            #             row.div_(norm).mul_(args.max_norm)
+            #     else:
+            #         model.fc1.weight.data.renorm_(2, 0, args.max_norm)
+
+            steps += 1
+            if steps % args.log_interval == 0:
+                corrects = accuracy.sum()
+                accuracy = corrects/batch.batch_size * 100.0
+                sys.stdout.write(
+                    '\rBatch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
+                                                                             loss.data[0],
+                                                                             accuracy,
+                                                                             corrects,
+                                                                             batch.batch_size))
+            if steps % args.test_interval == 0:
+                if args.verbose:
+                    corrects = accuracy.sum()
+                    accuracy = corrects/batch.batch_size * 100.0
+                    print(
+                    'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
+                                                                             loss.data[0],
+                                                                             accuracy,
+                                                                             corrects,
+                                                                             batch.batch_size), file=kwargs['log_file_handle'])
+        acc = eval(dev_iter, model, args, **kwargs)
+        if acc > best_acc:
+            best_acc = acc
+            best_model = copy.deepcopy(model)
+        # print(model.embed.weight[100])
+            # if steps % args.save_interval == 0:
+            #     if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
+            #     save_prefix = os.path.join(args.save_dir, 'snapshot')
+            #     save_path = '{}_steps{}.pt'.format(save_prefix, steps)
+            #     torch.save(model, save_path)
+    model = best_model
+    acc = eval(dev_iter, model, args, **kwargs)
+    return acc, model
+
+def eval(data_iter, model, args, **kwargs):
+    model.eval()
+    corrects, avg_loss = 0, 0
+    for batch in data_iter:
+        feature, target = batch.text, batch.label
+        feature.data.t_(), target.data.sub_(0)  # batch first, index align
+        if args.cuda:
+            feature, target = feature.cuda(), target.cuda()
+
+        accuracy = model(feature, target, update=False)
+
+        corrects += accuracy.sum()
+
+    size = len(data_iter.dataset)
+    accuracy = corrects/size * 100.0
+    model.train()
+    print('\nEvaluation - acc: {:.4f}%({}/{})'.format(
+                                                                       accuracy,
+                                                                       corrects,
+                                                                       size))
+    if args.verbose:
+        print('Evaluation - acc: {:.4f}%({}/{})'.format(
+                                                                           accuracy,
+                                                                           corrects,
+                                                                           size), file=kwargs['log_file_handle'])
+    return accuracy
+
+def bi_train(train_iter, dev_iter, model, args, **kwargs):
     if args.cuda:
         model.cuda()
     if args.optimizer == 'adam':
@@ -103,7 +204,7 @@ def train(train_iter, dev_iter, model, args, **kwargs):
     return acc, model
 
 
-def eval(data_iter, model, args, **kwargs):
+def bi_eval(data_iter, model, args, **kwargs):
     model.eval()
     total_loss = 0
     acc = 0
@@ -134,7 +235,7 @@ def eval(data_iter, model, args, **kwargs):
         print('Evaluation - acc: {:.6f} )'.format(acc), file=kwargs['log_file_handle'])
     return acc
 
-def train_label(model, train_iter, args):
+def bi_train_label(model, train_iter, args):
     if args.cuda:
         model.cuda()
     optimizer = torch.optim.Adadelta(model.parameters(), rho=0.95)
@@ -161,4 +262,7 @@ def train_label(model, train_iter, args):
             train_loss += loss.data[0]
         sys.stdout.write(
                 'Epoch {} - loss: {:.6f})'.format(epoch, train_loss / len(train_iter.dataset)))
-    return model
+    else:
+        _, hid_labels = model.forward((s1, s2))
+        hid_labels = hid_labels[-359:]
+    return model, hid_labels

@@ -1,4 +1,4 @@
-from cnn_classifier.model import CNN_Text
+from cnn_classifier.model import CNN_Text, Memory
 from torch import nn
 import torch.nn.functional as F
 import torch
@@ -23,3 +23,22 @@ class bi_CNN_Text(nn.Module):
         y = torch.sum(s, 1)
         # print(y.size())
         return y
+
+class CNN_Mem(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(CNN_Mem, self).__init__()
+        self.args = args
+        self.cnn = CNN_Text(*args, **kwargs)
+        self.memory = Memory(kwargs['mem_size'], kwargs['key_size'])
+
+    def forward(self, x, y, update=True):
+        x = self.cnn.confidence(x)
+        accuracy, loss = self.memory.compute_loss(x, y, update)
+        return accuracy, loss
+
+    def update_mem(self):
+        self.memory.update()
+
+    def cuda(self):
+        self.cnn.cuda()
+        self.memory.cuda()
