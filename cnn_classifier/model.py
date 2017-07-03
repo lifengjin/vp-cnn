@@ -129,20 +129,20 @@ class Memory:
 
     def query(self, x):
         self.index_vector_target_update = []
-        nn = torch.matmul(x, self.K)
+        nn = torch.mm(x, self.K)
         # print('similarity scores are {} '.format(nn))
         self.query_sims, self.query_indices = torch.topk(nn, self.knn, dim=1)
         # print('top K similarity scores are {} and the indices are {} '.format(self.query_sims, self.query_indices))
         self.x = x
         # print('the predicted label is {}'.format(self.query_indices[:,0]))
-        return self.V[self.query_indices[:,0]]
+        return self.V[self.query_indices[:,0].data]
 
     def compute_loss(self, x, y, alpha=0.1, update=True):
         self.index_vector_target_update = []
         # print('x is {}'.format(x))
         # print('K is {}'.format(self.K))
         self.query(x)
-        accuracy = self.V[self.query_indices[:,0]] == y
+        accuracy = self.V[self.query_indices[:,0].data] == y
         if not update:
             return accuracy
         # print('accuracy',accuracy)
@@ -156,8 +156,8 @@ class Memory:
             if acc.data[0] == 1:
                 # print('predicted label is right.')
                 positive_neighbor = self.query_sims[row_index, 0]
-                # print(self.query_sims[row_index], self.V[self.query_indices[row_index]] != y[row_index])
-                negative_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index]] != y[row_index]][0]
+                print(self.query_sims[row_index], self.V[self.query_indices[row_index].data].data != y[row_index].data[0])
+                negative_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index].data].data != y[row_index].data[0]][0]
                 # print('positive similarity score is {}, and the best negative score is {}'.format(positive_neighbor, negative_neighbor))
                 loss += negative_neighbor - positive_neighbor + alpha if (negative_neighbor - positive_neighbor + alpha).data[0] > 0 else 0
                 self.index_vector_target_update.append((self.query_indices[row_index,0],normalize(self.K[:, self.query_indices[row_index,0].data[0]] + autograd.Variable(x.data[row_index]), dim=0), None))
@@ -166,7 +166,7 @@ class Memory:
                 # print('predicted label is wrong.')
                 negative_neighbor = self.query_sims[row_index, 0]
                 # print('negative similarity score is {}'.format(negative_neighbor))
-                if not any((self.V[self.query_indices[row_index]] == y[row_index]).data):
+                if not any((self.V[self.query_indices[row_index].data] == y[row_index].data[0]).data):
                     # print('topk has no correct label. in V there is {}'.format(self.V == y.data[row_index]))
                     positive_neighbors = self.V == y.data[row_index]
                     if not any(positive_neighbors.data):
@@ -180,7 +180,8 @@ class Memory:
 
                         continue
                     if torch.numel(torch.nonzero(positive_neighbors.data)) > 1:
-                        positive_neighbor = self.K[:, random.choice(torch.nonzero(positive_neighbors.data))[0,0]]
+                        print(random.choice(torch.nonzero(positive_neighbors.data)))
+                        positive_neighbor = self.K[:, random.choice(torch.nonzero(positive_neighbors.data))[0]]
                         # print('V has multiple correct label, pick one {}'.format(positive_neighbor))
                     else:
                         positive_neighbor = self.K[:,torch.nonzero(positive_neighbors.data)[0,0]]
@@ -189,7 +190,7 @@ class Memory:
                     positive_neighbor = torch.dot(positive_neighbor, self.x[row_index])
                     # print('positive similarity is {}'.format(positive_neighbor))
                 else:
-                    positive_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index]] == y[row_index]][0]
+                    positive_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index].data] == y[row_index].data[0]][0]
                     # print('topk has the right label. the sim score is {}'.format(positive_neighbor))
                 oldest_index = torch.max(self.A, 0)[1].data[0]
                 # oldest_index = random.choice(oldest.data)
@@ -204,13 +205,14 @@ class Memory:
     def update(self):
         for t in self.index_vector_target_update:
             self.K[:, t[0].data[0] if not isinstance(t[0], int) else t[0]] = t[1]
-            self.A[t[0]] = 0
+            self.A[t[0].data[0] if not isinstance(t[0], int) else t[0]] = 0
             if t[2] is not None:
-                self.V[t[0]] = t[2]
+                self.V[t[0].data[0] if not isinstance(t[0], int) else t[0]] = t[2]
 
     def init_K(self, outside_k, outside_v):
         self.K.data[:, :len(outside_k.data)].copy_(outside_k.data.t())
         self.V.data[:len(outside_v.data)].copy_(outside_v.data)
+        self.A.data += 1
         self.A.data[:len(outside_v)] = 0
 
     def cuda(self):
