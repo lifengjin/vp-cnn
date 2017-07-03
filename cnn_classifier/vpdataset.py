@@ -6,7 +6,7 @@ import math
 import re
 import torch
 
-def vp(text_field, label_field, foldid, args, num_experts=0, **kargs):
+def vp(text_field, label_field, args, foldid, num_experts=0, **kargs):
     # print('num_experts', num_experts)
     train_data, dev_data, test_data = VP.splits(text_field, label_field, foldid=foldid,
                                                           num_experts=num_experts)
