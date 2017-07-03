@@ -6,8 +6,7 @@ sys.path.append(os.getcwd())
 from bicnn_model import CNN_Mem
 from cnn_classifier.model import Memory, CNN_Text
 from cnn_classifier.parse_args import parse_args
-from cnn_classifier.vpdataset import char_tokenizer,clean_str
-from cnn_classifier.main import vp
+from cnn_classifier.vpdataset import char_tokenizer,clean_str, vp
 from cnn_classifier.train import train
 import torch
 from torch.autograd import Variable
@@ -40,7 +39,7 @@ label_field = data.Field(sequential=False, use_vocab=False, preprocessing=int)
 #                                                           wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
 #                                                           min_freq=args.min_freq)
 xfold = 0
-train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, foldid=xfold,
+train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, args, foldid=xfold,
                                                     num_experts=args.num_experts, device=args.device,
                                                     repeat=False, sort=False, wv_type=args.word_vector,
                                                     wv_dim=args.word_embed_dim, wv_dir=args.emb_path,

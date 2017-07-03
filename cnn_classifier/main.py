@@ -7,45 +7,12 @@ import numpy as np
 import torchtext.data as data
 import torchtext.datasets as datasets
 import train
-import vpdataset
+from vpdataset import vp
 from parse_args import parse_args
 from chatscript_file_generator import *
 
 # load VP dataset
-def vp(text_field, label_field, foldid, num_experts=0, **kargs):
-    # print('num_experts', num_experts)
-    train_data, dev_data, test_data = vpdataset.VP.splits(text_field, label_field, foldid=foldid,
-                                                          num_experts=num_experts)
-    if num_experts > 0:
-        text_field.build_vocab(train_data[0], dev_data[0], test_data, wv_type=kargs["wv_type"], wv_dim=kargs["wv_dim"],
-                               wv_dir=kargs["wv_dir"], min_freq=kargs['min_freq'])
-    else:
-        text_field.build_vocab(train_data, dev_data, test_data, wv_type=kargs["wv_type"], wv_dim=kargs["wv_dim"],
-                               wv_dir=kargs["wv_dir"], min_freq=kargs['min_freq'])
-    # label_field.build_vocab(train_data, dev_data, test_data)
-    kargs.pop('wv_type')
-    kargs.pop('wv_dim')
-    kargs.pop('wv_dir')
-    kargs.pop("min_freq")
-    # print(type(train_data), type(dev_data))
-    if num_experts > 0:
-        train_iter = []
-        dev_iter = []
-        for i in range(num_experts):
-            this_train_iter, this_dev_iter, test_iter = data.Iterator.splits((train_data[i], dev_data[i], test_data),
-                                                                             batch_sizes=(args.batch_size,
-                                                                                          len(dev_data[i]),
-                                                                                          len(test_data)), **kargs)
-            train_iter.append(this_train_iter)
-            dev_iter.append(this_dev_iter)
-    else:
-        train_iter, dev_iter, test_iter = data.Iterator.splits(
-            (train_data, dev_data, test_data),
-            batch_sizes=(args.batch_size,
-                         len(dev_data),
-                         len(test_data)),
-            **kargs)
-    return train_iter, dev_iter, test_iter
+
 
 def check_vocab(field):
     itos = field.vocab.itos
@@ -91,10 +58,10 @@ def main():
         word_field = data.Field(lower=True, tokenize=tokenizer)
         label_field = data.Field(sequential=False, use_vocab=False, preprocessing=int)
 
-        train_iter, dev_iter, test_iter = vp(char_field, label_field, foldid=xfold, num_experts=args.num_experts,
+        train_iter, dev_iter, test_iter = vp(char_field, label_field, args, foldid=xfold, num_experts=args.num_experts,
                                              device=args.device, repeat=False, sort=False
                                              , wv_type=args.char_vector, wv_dim=args.char_embed_dim, wv_dir=args.char_emb_path, min_freq=1)
-        train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, foldid=xfold,
+        train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, args, foldid=xfold,
                                                            num_experts=args.num_experts, device=args.device,
                                                            repeat=False, sort=False, wv_type=args.word_vector,
                                                            wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
@@ -230,10 +197,10 @@ def main():
                 print("Sorry, This snapshot doesn't exist.");
                 exit()
 
-        train_iter, dev_iter, test_iter = vp(char_field, label_field, foldid=xfold, device=args.device, repeat=False,
+        train_iter, dev_iter, test_iter = vp(char_field, label_field, args, foldid=xfold, device=args.device, repeat=False,
                                              shuffle=False, sort=False
                                              , wv_type=args.char_vector, wv_dim=args.char_embed_dim, wv_dir=args.char_emb_path, min_freq=1)
-        train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, foldid=xfold,
+        train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, args, foldid=xfold,
                                                             device=args.device,
                                                             repeat=False, sort=False, shuffle=False,
                                                             wv_type=args.word_vector,

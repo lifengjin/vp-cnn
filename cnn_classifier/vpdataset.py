@@ -6,6 +6,41 @@ import math
 import re
 import torch
 
+def vp(text_field, label_field, foldid, args, num_experts=0, **kargs):
+    # print('num_experts', num_experts)
+    train_data, dev_data, test_data = VP.splits(text_field, label_field, foldid=foldid,
+                                                          num_experts=num_experts)
+    if num_experts > 0:
+        text_field.build_vocab(train_data[0], dev_data[0], test_data, wv_type=kargs["wv_type"], wv_dim=kargs["wv_dim"],
+                               wv_dir=kargs["wv_dir"], min_freq=kargs['min_freq'])
+    else:
+        text_field.build_vocab(train_data, dev_data, test_data, wv_type=kargs["wv_type"], wv_dim=kargs["wv_dim"],
+                               wv_dir=kargs["wv_dir"], min_freq=kargs['min_freq'])
+    # label_field.build_vocab(train_data, dev_data, test_data)
+    kargs.pop('wv_type')
+    kargs.pop('wv_dim')
+    kargs.pop('wv_dir')
+    kargs.pop("min_freq")
+    # print(type(train_data), type(dev_data))
+    if num_experts > 0:
+        train_iter = []
+        dev_iter = []
+        for i in range(num_experts):
+            this_train_iter, this_dev_iter, test_iter = data.Iterator.splits((train_data[i], dev_data[i], test_data),
+                                                                             batch_sizes=(args.batch_size,
+                                                                                          len(dev_data[i]),
+                                                                                          len(test_data)), **kargs)
+            train_iter.append(this_train_iter)
+            dev_iter.append(this_dev_iter)
+    else:
+        train_iter, dev_iter, test_iter = data.Iterator.splits(
+            (train_data, dev_data, test_data),
+            batch_sizes=(args.batch_size,
+                         len(dev_data),
+                         len(test_data)),
+            **kargs)
+    return train_iter, dev_iter, test_iter
+
 class VP(data.Dataset):
     """modeled after Shawn1993 github user's Pytorch implementation of Kim2014 - cnn for text categorization"""
 
