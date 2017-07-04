@@ -116,7 +116,7 @@ class StackingNet(nn.Module):
         return output
 
 class Memory:
-    def __init__(self,mem_size, key_size):
+    def __init__(self, mem_size=1000, key_size=300):
         self.K = autograd.Variable(normalize(torch.ones(mem_size, key_size)).t())
         # self.K = torch.norm(self.K, 2, 0).expand_as(self.K)
         self.V = autograd.Variable(torch.zeros(mem_size).long())
@@ -143,10 +143,10 @@ class Memory:
         # print('K is {}'.format(self.K))
         self.query(x)
         accuracy = self.V[self.query_indices[:,0].data] == y
+        loss = autograd.Variable(torch.zeros(1).cuda())
         if not update:
-            return accuracy
+            return loss, accuracy
         # print('accuracy',accuracy)
-        loss = 0
         # mask = self.query_indices[accuracy, 0]
         # self.K[mask] = torch.renorm(self.K[mask] + self.x.data)
         # self.A[mask] = 0
@@ -156,7 +156,7 @@ class Memory:
             if acc.data[0] == 1:
                 # print('predicted label is right.')
                 positive_neighbor = self.query_sims[row_index, 0]
-                print(self.query_sims[row_index], self.V[self.query_indices[row_index].data].data != y[row_index].data[0])
+                # print(self.query_sims[row_index], self.V[self.query_indices[row_index].data].data != y[row_index].data[0])
                 negative_neighbor = self.query_sims[row_index][self.V[self.query_indices[row_index].data].data != y[row_index].data[0]][0]
                 # print('positive similarity score is {}, and the best negative score is {}'.format(positive_neighbor, negative_neighbor))
                 loss += negative_neighbor - positive_neighbor + alpha if (negative_neighbor - positive_neighbor + alpha).data[0] > 0 else 0
@@ -180,7 +180,7 @@ class Memory:
 
                         continue
                     if torch.numel(torch.nonzero(positive_neighbors.data)) > 1:
-                        print(random.choice(torch.nonzero(positive_neighbors.data)))
+                        # print(random.choice(torch.nonzero(positive_neighbors.data)))
                         positive_neighbor = self.K[:, random.choice(torch.nonzero(positive_neighbors.data))[0]]
                         # print('V has multiple correct label, pick one {}'.format(positive_neighbor))
                     else:
@@ -200,6 +200,7 @@ class Memory:
                 #                                                         self.index_vector_target_update[0][0]))
                 loss += negative_neighbor - positive_neighbor + alpha
                 # print('loss is {}'.format(loss))
+        # print(loss, accuracy.sum())
         return loss, accuracy
 
     def update(self):

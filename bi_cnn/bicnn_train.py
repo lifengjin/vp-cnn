@@ -4,7 +4,7 @@ import sys
 import copy
 from tqdm import *
 
-def memory_train(train_iter, dev_iter, model, memory, args, **kwargs):
+def memory_train(train_iter, dev_iter, model, args, **kwargs):
     if args.cuda:
         model.cuda()
     if args.optimizer == 'adam':
@@ -20,7 +20,10 @@ def memory_train(train_iter, dev_iter, model, memory, args, **kwargs):
     model.train()
     best_acc = 0
     best_model = None
+    print('training the memory CNN starts now.')
     for epoch in range(1, args.epochs+1):
+        corrects = 0
+        total_loss = 0
         for batch in train_iter:
             feature, target = batch.text, batch.label
             feature.data.t_(), target.data.sub_(0)  # batch first, index align
@@ -31,9 +34,12 @@ def memory_train(train_iter, dev_iter, model, memory, args, **kwargs):
             assert feature.volatile is False and target.volatile is False
             # print(feature, target)
             optimizer.zero_grad()
-            accuracy, loss = model(feature, target)
-            loss.backward()
-            optimizer.step()
+            # print(feature ,target)
+            loss, accuracy = model(feature, target)
+            if loss.data[0] != 0:
+                loss.backward()
+                total_loss += loss
+                optimizer.step()
             model.update_mem()
 
             # # max norm constraint
@@ -45,38 +51,29 @@ def memory_train(train_iter, dev_iter, model, memory, args, **kwargs):
             #     else:
             #         model.fc1.weight.data.renorm_(2, 0, args.max_norm)
 
-            steps += 1
-            if steps % args.log_interval == 0:
-                corrects = accuracy.sum()
-                accuracy = corrects/batch.batch_size * 100.0
-                sys.stdout.write(
-                    '\rBatch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
-                                                                             loss.data[0],
-                                                                             accuracy,
-                                                                             corrects,
-                                                                             batch.batch_size))
-            if steps % args.test_interval == 0:
-                if args.verbose:
-                    corrects = accuracy.sum()
-                    accuracy = corrects/batch.batch_size * 100.0
-                    print(
-                    'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
-                                                                             loss.data[0],
-                                                                             accuracy,
-                                                                             corrects,
-                                                                             batch.batch_size), file=kwargs['log_file_handle'])
+            corrects += accuracy.sum().float()
+        sys.stdout.write(
+                'Epoch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{}) \n'.format(epoch,
+                                                                         total_loss.data[0],
+                                                                         corrects.data[0] / len(train_iter.dataset),
+                                                                         corrects.data[0], len(train_iter.dataset)
+                                                                         ))
+            # if steps % args.test_interval == 0:
+            #     if args.verbose:
+            #         corrects = accuracy.sum()
+            #         accuracy = corrects/batch.batch_size * 100.0
+            #         print(
+            #         'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
+            #                                                                  loss.data[0],
+            #                                                                  accuracy.data[0],
+            #                                                                  str(corrects),
+            #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
         acc = eval(dev_iter, model, args, **kwargs)
-        if acc > best_acc:
-            best_acc = acc
-            best_model = copy.deepcopy(model)
-        # print(model.embed.weight[100])
-            # if steps % args.save_interval == 0:
-            #     if not os.path.isdir(args.save_dir): os.makedirs(args.save_dir)
-            #     save_prefix = os.path.join(args.save_dir, 'snapshot')
-            #     save_path = '{}_steps{}.pt'.format(save_prefix, steps)
-            #     torch.save(model, save_path)
-    model = best_model
-    acc = eval(dev_iter, model, args, **kwargs)
+    #     if acc > best_acc:
+    #         best_acc = acc
+    #         best_model = copy.deepcopy(model)
+    # model = best_model
+    # acc = eval(dev_iter, model, args, **kwargs)
     return acc, model
 
 def eval(data_iter, model, args, **kwargs):
@@ -88,21 +85,21 @@ def eval(data_iter, model, args, **kwargs):
         if args.cuda:
             feature, target = feature.cuda(), target.cuda()
 
-        accuracy = model(feature, target, update=False)
+        _, accuracy = model(feature, target, update=False)
 
         corrects += accuracy.sum()
 
     size = len(data_iter.dataset)
-    accuracy = corrects/size * 100.0
+    accuracy = corrects.float()/size * 100.0
     model.train()
     print('\nEvaluation - acc: {:.4f}%({}/{})'.format(
-                                                                       accuracy,
-                                                                       corrects,
+                                                                       accuracy.data[0],
+                                                                       corrects.data[0],
                                                                        size))
     if args.verbose:
         print('Evaluation - acc: {:.4f}%({}/{})'.format(
                                                                            accuracy,
-                                                                           corrects,
+                                                                           corrects.data[0],
                                                                            size), file=kwargs['log_file_handle'])
     return accuracy
 

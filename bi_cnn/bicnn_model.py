@@ -2,6 +2,7 @@ from cnn_classifier.model import CNN_Text, Memory
 from torch import nn
 import torch.nn.functional as F
 import torch
+from utils.future_ops import normalize
 
 class bi_CNN_Text(nn.Module):
     def __init__(self, *args, **kwargs):
@@ -28,13 +29,14 @@ class CNN_Mem(nn.Module):
     def __init__(self, *args, **kwargs):
         super(CNN_Mem, self).__init__()
         self.args = args
+        self.memory = Memory(kwargs.pop('mem_size'), kwargs.pop('key_size'))
         self.cnn = CNN_Text(*args, **kwargs)
-        self.memory = Memory(kwargs['mem_size'], kwargs['key_size'])
 
     def forward(self, x, y, update=True):
         x = self.cnn.confidence(x)
-        accuracy, loss = self.memory.compute_loss(x, y, update)
-        return accuracy, loss
+        x = normalize(x)
+        loss, accuracy = self.memory.compute_loss(x, y, update=update)
+        return loss, accuracy
 
     def update_mem(self):
         self.memory.update()

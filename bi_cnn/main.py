@@ -39,68 +39,89 @@ label_field = data.Field(sequential=False, use_vocab=False, preprocessing=int)
 #                                                           wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
 #                                                           min_freq=args.min_freq)
 xfold = 0
-train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, args, foldid=xfold,
-                                                    num_experts=args.num_experts, device=args.device,
-                                                    repeat=False, sort=False, wv_type=args.word_vector,
-                                                    wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
-                                                    min_freq=args.min_freq)
+
 
 args.cuda = args.yes_cuda and torch.cuda.is_available()
 print('cuda is {}'.format(args.cuda))
-args.word_embed_num = len(word_field.vocab.itos)
-# args.char_embed_num = len(char_field.vocab.itos)
+
 # print(train_iters)
 
-print("start pretraining the CNNs")
-
-labeldata_word_iter = label_iter(word_field)
-# labeldata_char_iter = label_iter(char_field, multiplier=5)
-# label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-label_model = CNN_Text(args, 'word', vectors=None)
-label_model.cuda()
-_, label_model = train(labeldata_word_iter, labeldata_word_iter, label_model, args)
-one_iter = labeldata_word_iter.__iter__()
-one_batch = next(one_iter)
-features, labels = one_batch.text, one_batch.label
-hid_label_reps = label_model.confidence(features)
-# word_model = None
-# labeldata_word_iter = None
-word_memory = Memory(1000, 359)
-word_memory.init_K(hid_label_reps, labels)
-word_memory.cuda()
-# char_model = bi_CNN_Text(args, 'char')
-# bicnn_train.train_label(char_model, labeldata_char_iter, args)
-# char_model_dict = char_model.state_dict()
-# char_model = None
-# labeldata_char_iter = None
-
-##test
-word_model = CNN_Mem(args, 'word', vectors=None, mem_size=1000, key_size=359)
-word_model.cnn = label_model
-word_model.memory = word_memory
-bicnn_train.memory_train(train_iter_word, dev_iter_word, word_model, args, log_file_handle=log_file_handle)
-##test
+word_test_results = open('word_test_results.txt', 'w')
+char_test_results = open('char_test_results.txt', 'w')
 
 for xfold in range(args.xfolds):
-    # if xfold != 9:
-    #     continue
-    # log_file_handle.write('Fold {}, char\n'.format(xfold))
-    # train_iter = train_iters[xfold]
-    # dev_iter = dev_iters[xfold]
-    # test_iter = test_iters[xfold]
+    train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, args, foldid=xfold,
+                                                        num_experts=args.num_experts, device=args.device,
+                                                        repeat=False, sort=False, wv_type=args.word_vector,
+                                                        wv_dim=args.word_embed_dim, wv_dir=args.emb_path,
+                                                        min_freq=args.min_freq)
+    train_iter_char, dev_iter_char, test_iter_char = vp(char_field, label_field, args, foldid=xfold,
+                                                        num_experts=args.num_experts, device=args.device,
+                                                        repeat=False, sort=False, wv_type=None,
+                                                        wv_dim=args.char_embed_dim, wv_dir=None,
+                                                        min_freq=args.min_freq)
+    args.word_embed_num = len(word_field.vocab.itos)
+    args.char_embed_num = len(char_field.vocab.itos)
+    print("start pretraining the CNNs")
 
-    # char_model = bi_CNN_Text(args, 'char', vectors=None)
-    # char_model.load_state_dict(char_model_dict)
-    # bicnn_train.train(train_iter, dev_iter, char_model, args, log_file_handle=log_file_handle)
+    labeldata_word_iter = label_iter(word_field)
+    labeldata_char_iter = label_iter(char_field)
 
-    log_file_handle.write('Fold {}, word\n'.format(xfold))
-    train_iter = train_iter_word[xfold]
-    dev_iter = dev_iter_word[xfold]
-    # test_iter = test_iter_word[xfold]
-    word_model = CNN_Mem(args, 'word', vectors=None).load_state_dict(word_model)
-    word_model.load_state_dict(word_model_dict)
-    bicnn_train.train(train_iter, dev_iter, word_model, args, log_file_handle=log_file_handle)
-    # print("\nParameters:", file=log_file_handle)
-    # for attr, value in sorted(args.__dict__.items()):
-    #     print("\t{}={}".format(attr.upper(), value), file=log_file_handle)
+    print("train the word based models")
+    label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+    # label_model = CNN_Text(args, 'word', vectors=None)
+    label_model.cuda()
+    _, label_model = train(labeldata_word_iter, labeldata_word_iter, label_model, args)
+    one_iter = labeldata_word_iter.__iter__()
+    one_batch = next(one_iter)
+    features, labels = one_batch.text, one_batch.label
+    hid_label_reps = label_model.confidence(features)
+    word_memory = Memory(1000, 359)
+    word_memory.init_K(hid_label_reps, labels)
+    word_memory.cuda()
+
+    ##test
+    word_model = CNN_Mem(args, 'word', vectors=None, mem_size=1000, key_size=359)
+    word_model.cnn = label_model
+    word_model.memory = word_memory
+    bicnn_train.memory_train(train_iter_word, dev_iter_word, word_model, args, log_file_handle=log_file_handle)
+    test_results = bicnn_train.eval(test_iter_word, word_model, args, log_file_handle=log_file_handle)
+    for ele in test_results.data:
+        assert isinstance(ele, int), type(ele)
+        print(ele, file=word_test_results)
+    ##test
+
+    print('train the char based models')
+    label_model = CNN_Text(args, 'char', vectors=None)
+    label_model.cuda()
+    _, label_model = train(labeldata_char_iter, labeldata_char_iter, label_model, args)
+    one_iter = labeldata_char_iter.__iter__()
+    one_batch = next(one_iter)
+    features, labels = one_batch.text, one_batch.label
+    hid_label_reps = label_model.confidence(features)
+    char_memory = Memory(1000, 359)
+    char_memory.init_K(hid_label_reps, labels)
+    char_memory.cuda()
+
+    ##test
+    char_model = CNN_Mem(args, 'char', vectors=None, mem_size=1000, key_size=359)
+    char_model.cnn = label_model
+    char_model.memory = char_memory
+    bicnn_train.memory_train(train_iter_char, dev_iter_char, char_model, args, log_file_handle=log_file_handle)
+    test_results = bicnn_train.eval(train_iter_char, char_model, args, log_file_handle=log_file_handle)
+    for ele in test_results.data:
+        assert isinstance(ele, int), type(ele)
+        print(ele, file=char_test_results)
+    ##test
+
+    # log_file_handle.write('Fold {}, word\n'.format(xfold))
+    # train_iter = train_iter_word[xfold]
+    # dev_iter = dev_iter_word[xfold]
+    # # test_iter = test_iter_word[xfold]
+    # word_model = CNN_Mem(args, 'word', vectors=None).load_state_dict(word_model)
+    # word_model.load_state_dict(word_model_dict)
+    # bicnn_train.train(train_iter, dev_iter, word_model, args, log_file_handle=log_file_handle)
+    # # print("\nParameters:", file=log_file_handle)
+    # # for attr, value in sorted(args.__dict__.items()):
+    # #     print("\t{}={}".format(attr.upper(), value), file=log_file_handle)
     log_file_handle.flush()
