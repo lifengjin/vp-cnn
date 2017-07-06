@@ -135,7 +135,7 @@ class Memory:
         # print('top K similarity scores are {} and the indices are {} '.format(self.query_sims, self.query_indices))
         self.x = x
         # print('the predicted label is {}'.format(self.query_indices[:,0]))
-        return self.V[self.query_indices[:,0].data]
+        return self.V[self.query_indices[:,0].data].clone()
 
     def compute_loss(self, x, y, alpha=0.1, update=True):
         self.index_vector_target_update = []

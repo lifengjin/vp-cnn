@@ -109,7 +109,7 @@ for xfold in range(args.xfolds):
     char_model.cnn = label_model
     char_model.memory = char_memory
     bicnn_train.memory_train(train_iter_char, dev_iter_char, char_model, args, log_file_handle=log_file_handle)
-    _, test_results = bicnn_train.eval(train_iter_char, char_model, args, log_file_handle=log_file_handle)
+    _, test_results = bicnn_train.eval(test_iter_char, char_model, args, log_file_handle=log_file_handle)
     for pred in test_results:
         for ele in pred.data:
             assert isinstance(ele, int) or isinstance(ele, float), type(ele)
