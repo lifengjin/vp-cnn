@@ -28,7 +28,7 @@ class bi_CNN_Text(nn.Module):
 class CNN_Mem(nn.Module):
     def __init__(self, *args, **kwargs):
         super(CNN_Mem, self).__init__()
-        args.drop_out = 0.0
+        args[0].drop_out = 0.0
         self.args = args
         self.memory = Memory(kwargs.pop('mem_size'), kwargs.pop('key_size'))
         self.cnn = CNN_Text(*args, **kwargs)
