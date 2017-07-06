@@ -68,8 +68,8 @@ for xfold in range(args.xfolds):
     labeldata_char_iter = label_iter(char_field)
 
     print("train the word based models")
-    label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-    # label_model = CNN_Text(args, 'word', vectors=None)
+    # label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+    label_model = CNN_Text(args, 'word', vectors=None)
     label_model.cuda()
     _, label_model = train(labeldata_word_iter, labeldata_word_iter, label_model, args)
     one_iter = labeldata_word_iter.__iter__()
@@ -85,10 +85,11 @@ for xfold in range(args.xfolds):
     word_model.cnn = label_model
     word_model.memory = word_memory
     bicnn_train.memory_train(train_iter_word, dev_iter_word, word_model, args, log_file_handle=log_file_handle)
-    test_results = bicnn_train.eval(test_iter_word, word_model, args, log_file_handle=log_file_handle)
-    for ele in test_results.data:
-        assert isinstance(ele, int), type(ele)
-        print(ele, file=word_test_results)
+    _, test_results = bicnn_train.eval(test_iter_word, word_model, args, log_file_handle=log_file_handle)
+    for pred in test_results:
+        for ele in pred.data:
+            assert isinstance(ele, int) or isinstance(ele, float), type(ele)
+            print(ele, file=word_test_results)
     ##test
 
     print('train the char based models')
@@ -108,10 +109,11 @@ for xfold in range(args.xfolds):
     char_model.cnn = label_model
     char_model.memory = char_memory
     bicnn_train.memory_train(train_iter_char, dev_iter_char, char_model, args, log_file_handle=log_file_handle)
-    test_results = bicnn_train.eval(train_iter_char, char_model, args, log_file_handle=log_file_handle)
-    for ele in test_results.data:
-        assert isinstance(ele, int), type(ele)
-        print(ele, file=char_test_results)
+    _, test_results = bicnn_train.eval(train_iter_char, char_model, args, log_file_handle=log_file_handle)
+    for pred in test_results:
+        for ele in pred.data:
+            assert isinstance(ele, int) or isinstance(ele, float), type(ele)
+            print(ele, file=char_test_results)
     ##test
 
     # log_file_handle.write('Fold {}, word\n'.format(xfold))

@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import sys
 import copy
 from tqdm import *
+from torch.autograd import Variable
 
 def memory_train(train_iter, dev_iter, model, args, **kwargs):
     if args.cuda:
@@ -68,7 +69,7 @@ def memory_train(train_iter, dev_iter, model, args, **kwargs):
             #                                                                  accuracy.data[0],
             #                                                                  str(corrects),
             #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
-        acc = eval(dev_iter, model, args, **kwargs)
+        acc, _ = eval(dev_iter, model, args, **kwargs)
     #     if acc > best_acc:
     #         best_acc = acc
     #         best_model = copy.deepcopy(model)
@@ -79,13 +80,15 @@ def memory_train(train_iter, dev_iter, model, args, **kwargs):
 def eval(data_iter, model, args, **kwargs):
     model.eval()
     corrects, avg_loss = 0, 0
+    prediction_list = []
     for batch in data_iter:
         feature, target = batch.text, batch.label
         feature.data.t_(), target.data.sub_(0)  # batch first, index align
         if args.cuda:
             feature, target = feature.cuda(), target.cuda()
 
-        _, accuracy = model(feature, target, update=False)
+        predictions, accuracy = model(feature, target, update=False)
+        prediction_list.append(predictions)
 
         corrects += accuracy.sum()
 
@@ -101,7 +104,7 @@ def eval(data_iter, model, args, **kwargs):
                                                                            accuracy,
                                                                            corrects.data[0],
                                                                            size), file=kwargs['log_file_handle'])
-    return accuracy
+    return accuracy, prediction_list
 
 def bi_train(train_iter, dev_iter, model, args, **kwargs):
     if args.cuda:
@@ -186,7 +189,7 @@ def bi_train(train_iter, dev_iter, model, args, **kwargs):
             #                                                                  accuracy,
             #                                                                  corrects,
             #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
-        acc = eval(dev_iter, model, args, **kwargs)
+        acc = bi_eval(dev_iter, model, args, **kwargs)
         if acc > best_acc:
             best_acc = acc
             best_model = copy.deepcopy(model)
@@ -197,7 +200,7 @@ def bi_train(train_iter, dev_iter, model, args, **kwargs):
             #     save_path = '{}_steps{}.pt'.format(save_prefix, steps)
             #     torch.save(model, save_path)
     model = best_model
-    acc = eval(dev_iter, model, args, **kwargs)
+    acc = bi_eval(dev_iter, model, args, **kwargs)
     return acc, model
 
 

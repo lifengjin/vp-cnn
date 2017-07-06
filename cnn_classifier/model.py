@@ -141,11 +141,11 @@ class Memory:
         self.index_vector_target_update = []
         # print('x is {}'.format(x))
         # print('K is {}'.format(self.K))
-        self.query(x)
+        predictions = self.query(x)
         accuracy = self.V[self.query_indices[:,0].data] == y
         loss = autograd.Variable(torch.zeros(1).cuda())
         if not update:
-            return loss, accuracy
+            return predictions, accuracy
         # print('accuracy',accuracy)
         # mask = self.query_indices[accuracy, 0]
         # self.K[mask] = torch.renorm(self.K[mask] + self.x.data)
