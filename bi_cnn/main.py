@@ -90,6 +90,7 @@ for xfold in range(args.xfolds):
         for ele in pred.data:
             assert isinstance(ele, int) or isinstance(ele, float), type(ele)
             print(ele, file=word_test_results)
+    word_test_results.flush()
     ##test
 
     print('train the char based models')
@@ -114,6 +115,7 @@ for xfold in range(args.xfolds):
         for ele in pred.data:
             assert isinstance(ele, int) or isinstance(ele, float), type(ele)
             print(ele, file=char_test_results)
+    char_test_results.flush()
     ##test
 
     # log_file_handle.write('Fold {}, word\n'.format(xfold))
