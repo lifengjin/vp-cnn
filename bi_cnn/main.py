@@ -49,6 +49,10 @@ print('cuda is {}'.format(args.cuda))
 word_test_results = open('word_test_results.txt', 'w')
 char_test_results = open('char_test_results.txt', 'w')
 
+print("\nParameters:", file=log_file_handle)
+for attr, value in sorted(args.__dict__.items()):
+    print("\t{}={}".format(attr.upper(), value), file=log_file_handle)
+
 for xfold in range(args.xfolds):
     train_iter_word, dev_iter_word, test_iter_word = vp(word_field, label_field, args, foldid=xfold,
                                                         num_experts=args.num_experts, device=args.device,
@@ -68,9 +72,10 @@ for xfold in range(args.xfolds):
     labeldata_char_iter = label_iter(char_field)
 
     print("train the word based models")
-    # label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-    label_model = CNN_Text(args, 'word', vectors=None)
+    label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+    # label_model = CNN_Text(args, 'word', vectors=None)
     label_model.cuda()
+    args.epochs = 25
     _, label_model = train(labeldata_word_iter, labeldata_word_iter, label_model, args)
     one_iter = labeldata_word_iter.__iter__()
     one_batch = next(one_iter)
@@ -84,6 +89,7 @@ for xfold in range(args.xfolds):
     word_model = CNN_Mem(args, 'word', vectors=None, mem_size=1000, key_size=359)
     word_model.cnn = label_model
     word_model.memory = word_memory
+    args.epochs = args.word_epochs
     bicnn_train.memory_train(train_iter_word, dev_iter_word, word_model, args, log_file_handle=log_file_handle)
     _, test_results = bicnn_train.eval(test_iter_word, word_model, args, log_file_handle=log_file_handle)
     for pred in test_results:
@@ -96,6 +102,7 @@ for xfold in range(args.xfolds):
     print('train the char based models')
     label_model = CNN_Text(args, 'char', vectors=None)
     label_model.cuda()
+    args.epochs = 25
     _, label_model = train(labeldata_char_iter, labeldata_char_iter, label_model, args)
     one_iter = labeldata_char_iter.__iter__()
     one_batch = next(one_iter)
@@ -109,6 +116,7 @@ for xfold in range(args.xfolds):
     char_model = CNN_Mem(args, 'char', vectors=None, mem_size=1000, key_size=359)
     char_model.cnn = label_model
     char_model.memory = char_memory
+    args.epochs = args.char_epochs
     bicnn_train.memory_train(train_iter_char, dev_iter_char, char_model, args, log_file_handle=log_file_handle)
     _, test_results = bicnn_train.eval(test_iter_char, char_model, args, log_file_handle=log_file_handle)
     for pred in test_results:
@@ -125,7 +133,5 @@ for xfold in range(args.xfolds):
     # word_model = CNN_Mem(args, 'word', vectors=None).load_state_dict(word_model)
     # word_model.load_state_dict(word_model_dict)
     # bicnn_train.train(train_iter, dev_iter, word_model, args, log_file_handle=log_file_handle)
-    # # print("\nParameters:", file=log_file_handle)
-    # # for attr, value in sorted(args.__dict__.items()):
-    # #     print("\t{}={}".format(attr.upper(), value), file=log_file_handle)
+
     log_file_handle.flush()
