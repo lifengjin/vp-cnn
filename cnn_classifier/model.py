@@ -119,7 +119,7 @@ class Memory:
     def __init__(self, mem_size=1000, key_size=300):
         self.K = autograd.Variable(normalize(torch.ones(mem_size, key_size)).t())
         # self.K = torch.norm(self.K, 2, 0).expand_as(self.K)
-        self.V = autograd.Variable(torch.zeros(mem_size).long())
+        self.V = autograd.Variable(torch.zeros(mem_size).long().fill_(-1))
         self.A = autograd.Variable(torch.zeros(mem_size).long())
         self.knn = 256
         self.query_indices = 0
