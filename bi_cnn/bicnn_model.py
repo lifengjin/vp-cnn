@@ -2,6 +2,7 @@ from cnn_classifier.model import CNN_Text, Memory
 from torch import nn
 import torch.nn.functional as F
 import torch
+import copy
 from utils.future_ops import normalize
 
 class bi_CNN_Text(nn.Module):
@@ -35,8 +36,8 @@ class CNN_Mem(nn.Module):
     def forward(self, x, y, update=True):
         x = self.cnn.confidence(x)
         x = normalize(x)
-        loss, accuracy = self.memory.compute_loss(x, y, update=update)
-        return loss, accuracy
+        loss, accuracy, other_accuracies = self.memory.compute_loss(x, y, update=update)
+        return loss, accuracy, other_accuracies
 
     def update_mem(self):
         self.memory.update()
@@ -44,3 +45,14 @@ class CNN_Mem(nn.Module):
     def cuda(self):
         self.cnn.cuda()
         self.memory.cuda()
+
+    def copy(self):
+        cnn_copy = copy.deepcopy(self.cnn)
+        memory_copy = (self.memory.K.data.clone(), self.memory.V.data.clone(), self.memory.A.data.clone())
+        return (cnn_copy, memory_copy)
+
+    def restore(self, some_copy):
+        self.cnn = some_copy[0]
+        self.memory.K.data  = some_copy[1][0]
+        self.memory.V.data = some_copy[1][1]
+        self.memory.A.data = some_copy[1][2]

@@ -44,7 +44,7 @@ def vp(text_field, label_field, args, foldid, num_experts=0, **kargs):
 class VP(data.Dataset):
     """modeled after Shawn1993 github user's Pytorch implementation of Kim2014 - cnn for text categorization"""
 
-    filename = "/home/jin.544/vp-cnn/data/wilkins_corrected.shuffled.51.txt"
+    filename = os.path.expanduser('~/vp-cnn/data/wilkins_corrected.shuffled.51.txt')
 
     @staticmethod
     def sort_key(ex):
@@ -105,7 +105,7 @@ class VP(data.Dataset):
         if shuffle: random.shuffle(examples)
         fields = [('text', text_field), ('label', label_field)]
         label_examples = []
-        label_filename = '/home/jin.544/vp-cnn/data/labels.txt'
+        label_filename = os.path.expanduser('~/vp-cnn/data/labels.txt')
         with open(label_filename) as f:
             lines = f.readlines()
             # pdb.set_trace()

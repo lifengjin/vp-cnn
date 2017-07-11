@@ -5,6 +5,7 @@ import copy
 from tqdm import *
 from torch.autograd import Variable
 
+
 def memory_train(train_iter, dev_iter, model, args, **kwargs):
     if args.cuda:
         model.cuda()
@@ -22,8 +23,10 @@ def memory_train(train_iter, dev_iter, model, args, **kwargs):
     best_acc = 0
     best_model = None
     print('training the memory CNN starts now.')
-    for epoch in range(1, args.epochs+1):
+    for epoch in range(1, args.epochs + 1):
         corrects = 0
+        corrects_at_5 = 0
+        corrects_at_10 = 0
         total_loss = 0
         for batch in train_iter:
             feature, target = batch.text, batch.label
@@ -36,7 +39,7 @@ def memory_train(train_iter, dev_iter, model, args, **kwargs):
             # print(feature, target)
             optimizer.zero_grad()
             # print(feature ,target)
-            loss, accuracy = model(feature, target)
+            loss, accuracy, other_accuracies = model(feature, target)
             if loss.data[0] != 0:
                 loss.backward()
                 total_loss += loss
@@ -53,33 +56,45 @@ def memory_train(train_iter, dev_iter, model, args, **kwargs):
             #         model.fc1.weight.data.renorm_(2, 0, args.max_norm)
 
             corrects += accuracy.sum().float()
+            corrects_at_5 += other_accuracies[0].sum().float()
+            corrects_at_10 += other_accuracies[1].sum().float()
         sys.stdout.write(
-                'Epoch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{}) \n'.format(epoch,
-                                                                         total_loss.data[0],
-                                                                         corrects.data[0] / len(train_iter.dataset),
-                                                                         corrects.data[0], len(train_iter.dataset)
-                                                                         ))
-            # if steps % args.test_interval == 0:
-            #     if args.verbose:
-            #         corrects = accuracy.sum()
-            #         accuracy = corrects/batch.batch_size * 100.0
-            #         print(
-            #         'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
-            #                                                                  loss.data[0],
-            #                                                                  accuracy.data[0],
-            #                                                                  str(corrects),
-            #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
+            'Epoch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{}) @5 {:.2f}% @10 {:.2f}% \n'.format(epoch,
+                                                                                        total_loss.data[0],
+                                                                                        corrects.data[0] / len(
+                                                                                            train_iter.dataset) * 100,
+                                                                                        corrects.data[0],
+                                                                                        len(train_iter.dataset)
+                                                                                        , corrects_at_5.data[0] / len(
+                                                                                        train_iter.dataset) * 100,
+                                                                                        corrects_at_10.data[
+                                                                                            0] / len(
+                                                                                            train_iter.dataset) * 100
+                                                                                        ))
+        # if steps % args.test_interval == 0:
+        #     if args.verbose:
+        #         corrects = accuracy.sum()
+        #         accuracy = corrects/batch.batch_size * 100.0
+        #         print(
+        #         'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
+        #                                                                  loss.data[0],
+        #                                                                  accuracy.data[0],
+        #                                                                  str(corrects),
+        #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
         acc, _ = eval(dev_iter, model, args, **kwargs)
-    #     if acc > best_acc:
-    #         best_acc = acc
-    #         best_model = copy.deepcopy(model)
-    # model = best_model
-    # acc = eval(dev_iter, model, args, **kwargs)
+        if acc > best_acc:
+            best_acc = acc
+            best_model = model.copy()
+    model.restore(best_model)
+    acc = eval(dev_iter, model, args, **kwargs)
     return acc, model
+
 
 def eval(data_iter, model, args, **kwargs):
     model.eval()
     corrects, avg_loss = 0, 0
+    corrects_at_5 = 0
+    corrects_at_10 = 0
     prediction_list = []
     for batch in data_iter:
         feature, target = batch.text, batch.label
@@ -87,24 +102,31 @@ def eval(data_iter, model, args, **kwargs):
         if args.cuda:
             feature, target = feature.cuda(), target.cuda()
 
-        predictions, accuracy = model(feature, target, update=False)
+        predictions, accuracy, other_accuracies = model(feature, target, update=False)
         prediction_list.append(predictions)
 
-        corrects += accuracy.sum()
+        corrects += accuracy.sum().float()
+        corrects_at_5 += other_accuracies[0].sum().float()
+        corrects_at_10 += other_accuracies[1].sum().float()
 
     size = len(data_iter.dataset)
-    accuracy = corrects.float()/size * 100.0
+    accuracy = corrects.data[0] / size * 100.0
+    accuracy_at_5 = corrects_at_5.data[0] /size * 100.0
+    accuracy_at_10 = corrects_at_10.data[0] / size * 100.0
     model.train()
-    print('\nEvaluation - acc: {:.4f}%({}/{})'.format(
-                                                                       accuracy.data[0],
-                                                                       corrects.data[0],
-                                                                       size))
-    if args.verbose:
-        print('Evaluation - acc: {:.4f}%({}/{})'.format(
-                                                                           accuracy,
-                                                                           corrects.data[0],
-                                                                           size), file=kwargs['log_file_handle'])
+    print('Evaluation - acc: {:.4f}%({}/{}) @5 {:.2f}% @10 {:.2f}% \n'.format(
+        accuracy,
+        corrects.data[0],
+        size,
+        accuracy_at_5,
+        accuracy_at_10))
+    # if args.verbose:
+    #     print('Evaluation - acc: {:.4f}%({}/{})'.format(
+    #         accuracy,
+    #         corrects.data[0],
+    #         size), file=kwargs['log_file_handle'])
     return accuracy, prediction_list
+
 
 def bi_train(train_iter, dev_iter, model, args, **kwargs):
     if args.cuda:
@@ -176,19 +198,19 @@ def bi_train(train_iter, dev_iter, model, args, **kwargs):
 
             steps += 1
         sys.stdout.write(
-                '\rEpoch {} - loss: {:.6f} acc: {} batch: {})'.format(epoch, train_loss / len(train_iter.dataset),
-                                                                      acc / (i + 1), args.batch_size))
+            '\rEpoch {} - loss: {:.6f} acc: {} batch: {})'.format(epoch, train_loss / len(train_iter.dataset),
+                                                                  acc / (i + 1), args.batch_size))
         train_loss = 0
-            # if steps % args.test_interval == 0:
-            #     if args.verbose:
-            #         corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
-            #         accuracy = corrects/batch.batch_size * 100.0
-            #         print(
-            #         'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
-            #                                                                  loss.data[0],
-            #                                                                  accuracy,
-            #                                                                  corrects,
-            #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
+        # if steps % args.test_interval == 0:
+        #     if args.verbose:
+        #         corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
+        #         accuracy = corrects/batch.batch_size * 100.0
+        #         print(
+        #         'Batch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
+        #                                                                  loss.data[0],
+        #                                                                  accuracy,
+        #                                                                  corrects,
+        #                                                                  batch.batch_size), file=kwargs['log_file_handle'])
         acc = bi_eval(dev_iter, model, args, **kwargs)
         if acc > best_acc:
             best_acc = acc
@@ -235,6 +257,7 @@ def bi_eval(data_iter, model, args, **kwargs):
         print('Evaluation - acc: {:.6f} )'.format(acc), file=kwargs['log_file_handle'])
     return acc
 
+
 def bi_train_label(model, train_iter, args):
     if args.cuda:
         model.cuda()
@@ -261,7 +284,7 @@ def bi_train_label(model, train_iter, args):
             optimizer.step()
             train_loss += loss.data[0]
         sys.stdout.write(
-                'Epoch {} - loss: {:.6f})'.format(epoch, train_loss / len(train_iter.dataset)))
+            'Epoch {} - loss: {:.6f})'.format(epoch, train_loss / len(train_iter.dataset)))
     else:
         _, hid_labels = model.forward((s1, s2))
         hid_labels = hid_labels[-359:]

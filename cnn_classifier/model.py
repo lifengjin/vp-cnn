@@ -143,9 +143,20 @@ class Memory:
         # print('K is {}'.format(self.K))
         predictions = self.query(x)
         accuracy = self.V[self.query_indices[:,0].data] == y
+
+        indices_5 = self.query_indices[:, :5].data.contiguous()
+        indices_5_size = indices_5.size()
+        data_5 = self.V[indices_5.view(-1)].view(indices_5_size)
+        accuracy_at_5, _ = torch.max(data_5 == y.view(-1, 1).expand_as(data_5),1)
+
+        indices_10 = self.query_indices[:, :10].data.contiguous()
+        indices_10_size = indices_10.size()
+        data_10 = self.V[indices_10.view(-1)].view(indices_10_size)
+        accuracy_at_10, _ = torch.max(data_10 == y.view(-1, 1).expand_as(data_10),1)
+        other_accuracies = (accuracy_at_5, accuracy_at_10)
         loss = autograd.Variable(torch.zeros(1).cuda())
         if not update:
-            return predictions, accuracy
+            return predictions, accuracy, other_accuracies
         # print('accuracy',accuracy)
         # mask = self.query_indices[accuracy, 0]
         # self.K[mask] = torch.renorm(self.K[mask] + self.x.data)
@@ -201,7 +212,7 @@ class Memory:
                 loss += negative_neighbor - positive_neighbor + alpha
                 # print('loss is {}'.format(loss))
         # print(loss, accuracy.sum())
-        return loss, accuracy
+        return loss, accuracy, other_accuracies
 
     def update(self):
         for t in self.index_vector_target_update:

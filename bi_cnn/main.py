@@ -72,10 +72,11 @@ for xfold in range(args.xfolds):
     labeldata_char_iter = label_iter(char_field)
 
     print("train the word based models")
-    label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
-    # label_model = CNN_Text(args, 'word', vectors=None)
+    print(word_field.vocab.vectors.size(), type(word_field.vocab.vectors))
+    # label_model = CNN_Text(args, 'word', vectors=word_field.vocab.vectors)
+    label_model = CNN_Text(args, 'word', vectors=None)
     label_model.cuda()
-    args.epochs = 25
+    args.epochs = 300
     _, label_model = train(labeldata_word_iter, labeldata_word_iter, label_model, args)
     one_iter = labeldata_word_iter.__iter__()
     one_batch = next(one_iter)
@@ -102,7 +103,7 @@ for xfold in range(args.xfolds):
     print('train the char based models')
     label_model = CNN_Text(args, 'char', vectors=None)
     label_model.cuda()
-    args.epochs = 25
+    args.epochs = 30
     _, label_model = train(labeldata_char_iter, labeldata_char_iter, label_model, args)
     one_iter = labeldata_char_iter.__iter__()
     one_batch = next(one_iter)
