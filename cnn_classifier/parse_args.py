@@ -85,6 +85,10 @@ def parse_args():
     parser.add_argument('-embed-num', type=int, default=100, help='for testing purposes. do not use.')
     parser.add_argument('-class-num', type=int, default=359, help='for testing purposes. do not use.')
     # end of testing
+
+    # memory params
+    parser.add_argument('-mem-size', type=int, default=5e4, help='the size of the memory buffer in the Memory module')
+
     args = parser.parse_args()
 
     if args.word_vector == 'glove':

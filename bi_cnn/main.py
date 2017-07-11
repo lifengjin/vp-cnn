@@ -87,7 +87,7 @@ for xfold in range(args.xfolds):
     word_memory.cuda()
 
     ##test
-    word_model = CNN_Mem(args, 'word', vectors=None, mem_size=1000, key_size=359)
+    word_model = CNN_Mem(args, 'word', vectors=None, mem_size=args.mem_size, key_size=359)
     word_model.cnn = label_model
     word_model.memory = word_memory
     args.epochs = args.word_epochs
@@ -114,7 +114,7 @@ for xfold in range(args.xfolds):
     char_memory.cuda()
 
     ##test
-    char_model = CNN_Mem(args, 'char', vectors=None, mem_size=1000, key_size=359)
+    char_model = CNN_Mem(args, 'char', vectors=None, mem_size=args.mem_size, key_size=359)
     char_model.cnn = label_model
     char_model.memory = char_memory
     args.epochs = args.char_epochs
