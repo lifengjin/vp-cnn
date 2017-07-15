@@ -87,7 +87,7 @@ def parse_args():
     # end of testing
 
     # memory params
-    parser.add_argument('-mem-size', type=int, default=5e4, help='the size of the memory buffer in the Memory module')
+    parser.add_argument('-mem-size', type=int, default=int(5e4), help='the size of the memory buffer in the Memory module')
 
     args = parser.parse_args()
 
